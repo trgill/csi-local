@@ -34,6 +34,7 @@ from blivet.size import Size
 
 from blivet.util import set_up_logging
 import driver
+import controller
 from identity import SpringfieldIdentityService
 from controller import SpringfieldControllerService
 from controller import disks_to_use
@@ -43,6 +44,7 @@ from controller import VOLUME_GROUP_NAME
 from node import SpringfieldNodeService
 
 STORAGE_DEVS_FILE = "storage_devs.json"
+controller.volume_group = None
 
 set_up_logging()
 
@@ -88,63 +90,38 @@ def initilize_disks(init_disks):
 
     blivet_handle.reset()
 
+    pvs = list()
+
     for dev_path in storage_devs:
         device = blivet_handle.devicetree.get_device_by_path(dev_path)
 
-        if device == None:
+        if device is None:
             logging.warning('device %s not found', dev_path)
             continue
 
-        if device.is_disk == True and device.is_empty == True:
+        if device.is_disk and device.is_empty:
             disks_to_use.append(device)
-            blivet_handle.initialize_disk(device)
+
+            blivet_handle.format_device(
+                device, blivet.formats.get_format('lvmpv', device=device.path))
+
+            pvs.append(device)
         else:
             logging.warning(
                 'device %s not empty or not a valid device', dev_path)
             continue
-    try:
-        blivet_handle.do_it()
-
-    except BaseException as error:
-        logging.error('An exception occurred: {}'.format(error))
-        exit()
 
     if len(disks_to_use) == 0:
         logging.error("No useable disks")
         exit()
 
-    pv = StorageDevice("pv1", fmt=blivet.formats.get_format("lvmpv"),
-                       size=Size("1 GiB"), exists=True)
-    vg = LVMVolumeGroupDevice("testvg", parents=[pv], exists=True)
-    lv1 = LVMLogicalVolumeDevice(
-        "data_lv", parents=[vg], size=Size("500 MiB"), exists=False)
+    controller.volume_group = blivet_handle.new_vg(
+        name=VOLUME_GROUP_NAME, parents=pvs)
+    blivet_handle.create_device(controller.volume_group)
 
-    lv2 = LVMLogicalVolumeDevice("metadata_lv", parents=[
-        vg], size=Size("50 MiB"), exists=False)
-
-    for dev in (pv, vg, lv1, lv2):
-        b.devicetree._add_device(dev)
-
-    # check that all the above devices are in the expected places
-    self.assertEqual(set(b.devices), {pv, vg, lv1, lv2})
-    self.assertEqual(set(b.vgs), {vg})
-    self.assertEqual(set(b.lvs), {lv1, lv2})
-    self.assertEqual(set(b.vgs[0].lvs), {lv1, lv2})
-
-    self.assertEqual(vg.size, Size("1020 MiB"))
-    self.assertEqual(lv1.size, Size("500 MiB"))
-    self.assertEqual(lv2.size, Size("50 MiB"))
-
-    # combine the two LVs into a thin pool (the LVs should become its internal LVs)
-    pool = b.new_lv_from_lvs(
-        vg, name="pool", seg_type="thin-pool", from_lvs=(lv1, lv2))
-
-    device = blivet_handle.factory_device(blivet.devicefactory.DEVICE_TYPE_LVM,
-                                          container_name=VOLUME_GROUP_NAME,
-                                          disks=disks_to_use,
-                                          container_size=blivet.devicefactory.SIZE_POLICY_AUTO)
     try:
         blivet_handle.do_it()
+
     except BaseException as error:
         logging.error('An exception occurred: {}'.format(error))
         exit()

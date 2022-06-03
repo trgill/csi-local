@@ -28,9 +28,9 @@ import grpc
 import csi_pb2
 from csi_pb2 import ControllerServiceCapability
 import blivet
-from blivet.size import Size
+from blivet.size import Size, B
 from blivet.formats.swap import SwapSpace
-from blivet import LVMLogicalVolumeDevice
+from blivet.devices import LVMLogicalVolumeDevice
 from csi_pb2_grpc import ControllerServicer
 import json
 
@@ -41,14 +41,14 @@ blivet_handle = blivet.Blivet()   # create an instance of Blivet
 volume_list = list()
 vg_list = list()
 disks_to_use = list()
-vg_device = LVMLogicalVolumeDevice()
+volume_group = None
 
 
 class VolumeMap:
-    def __init__(self, real_name, csi_volume, device):
+    def __init__(self, real_name, blivet_name, csi_volume, lv):
         self.real_name = real_name
         self.csi_volume = csi_volume
-        self.device = device
+        self.lv = lv
         self.published_path = None
 
 
@@ -245,12 +245,10 @@ class SpringfieldControllerService(ControllerServicer):
                 )
 
         # Create the Volume using Blivet
-        device = blivet_handle.factory_device(blivet.devicefactory.DEVICE_TYPE_LVM,
-                                              container_name=VOLUME_GROUP_NAME,
-                                              disks=disks_to_use,
-                                              fstype=fstype,
-                                              device_name=name,
-                                              size=Size(size))
+        lv = blivet_handle.new_lv(name=name, parents=[volume_group],
+                                  size=Size(size), fmt_type="xfs")
+
+        blivet_handle.create_device(lv)
 
         try:
             blivet_handle.do_it()
@@ -268,7 +266,7 @@ class SpringfieldControllerService(ControllerServicer):
                     segments={"hostname": os.uname().nodename})
             ])
         volume_map = VolumeMap(
-            request.name, csi_volume, device)
+            request.name, name, csi_volume, lv)
 
         volume_list.append(volume_map)
         print_volume_list()
@@ -478,7 +476,7 @@ class SpringfieldControllerService(ControllerServicer):
 
         device = blivet_handle.devicetree.get_device_by_name(VOLUME_GROUP_NAME)
 
-        return csi_pb2.GetCapacityResponse(available_capacity=device.container.free_space)
+        return csi_pb2.GetCapacityResponse(available_capacity=int(volume_group.free_space.convert_to(B)))
 
     def ControllerGetCapabilities(self, request, context):
 
