@@ -71,72 +71,9 @@ def print_volume_list():
     for volume_map in volume_list:
         print("Volume ID : ", volume_map.csi_volume.volume_id)
         print("\tCapacity : ", volume_map.csi_volume.capacity_bytes)
-
-
-def get_device_attrs(device):
-    device_attrs = dict()
-    device_attrs["major:minor"] = get_major_minor_str(device)
-    device_attrs["name"] = device.name
-    device_attrs["path"] = device.path,
-    device_attrs["type"] = device.type,
-    device_attrs["size"] = device.size.human_readable(max_places=None),
-    device_attrs["id"] = device.id,
-    device_attrs["uuid"] = device.uuid or "",
-    device_attrs["status"] = device.status or False,
-    device_attrs["format"] = device.format.type
-    return device_attrs
-
-
-def get_filesystem_attrs(device, filesystems_json):
-
-    if device.format.type != None:
-        filesystems_json['size'] = str(device.format.size)
-        filesystems_json['target_size'] = str(device.format.target_size)
-        if device.format.exists:
-            if not isinstance(device.format, SwapSpace):
-                filesystems_json['mountpoint'] = device.format.mountpoint
-                filesystems_json['mountable'] = device.format.mountable
-
-
-def get_child_list(device, block_devices_json, children_json, filesystems_json):
-    children = []
-
-    if (not device.children is None):
-        for child in device.children:
-            get_filesystem_attrs(child, filesystems_json)
-            child_attrs = get_device_attrs(child)
-
-            block_devices_json[get_major_minor_str(child)] = child_attrs
-            children.append(child_attrs['major:minor'])
-            get_child_list(child, block_devices_json,
-                           children_json, filesystems_json)
-    else:
-        return
-
-    children_json[get_major_minor_str(device)] = children
-
-
-def devicetree_tojson(devicetree):
-    devices = devicetree.devices
-    block_devices_json = dict()
-    children_json = dict()
-    filesystems_json = dict()
-
-    for dev in devices:
-        if (not dev.children is None):
-            get_child_list(dev, block_devices_json,
-                           children_json, filesystems_json)
-        dev_attrs = get_device_attrs(dev)
-        block_devices_json[get_major_minor_str(dev)] = dev_attrs
-
-    combined_json = dict(block_devices=dict(sorted(block_devices_json.items())),
-                         children=dict(sorted(children_json.items())),
-                         filesystems=dict(
-                             sorted(filesystems_json.items())))
-
-    print(json.dumps(combined_json, indent=2))
-
-    return json.dumps(combined_json, indent=2)
+    print("Device Tree:")
+    print(str(blivet_handle.devicetree))
+    print("\n")
 
 
 def destroy(device):
