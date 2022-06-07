@@ -360,7 +360,7 @@ class SpringfieldControllerService(ControllerServicer):
         volume_map = volume_map = get_volume(request.volume_id)
 
         if volume_map == None:
-            return csi_pb2.DeleteVolumeResponse()
+            return csi_pb2.ControllerUnpublishVolumeResponse()
         return csi_pb2.ControllerUnpublishVolumeResponse()
 
     def ValidateVolumeCapabilities(self, request, context):
