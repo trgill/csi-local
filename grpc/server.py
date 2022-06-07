@@ -44,7 +44,7 @@ from controller import VOLUME_GROUP_NAME
 from node import SpringfieldNodeService
 
 STORAGE_DEVS_FILE = "storage_devs.json"
-controller.volume_group = None
+
 
 set_up_logging()
 
