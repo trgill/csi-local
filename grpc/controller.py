@@ -183,7 +183,7 @@ class SpringfieldControllerService(ControllerServicer):
 
         # Create the Volume using Blivet
         lv = blivet_handle.new_lv(name=name, parents=[volume_group],
-                                  size=Size(size), fmt_type="xfs")
+                                  size=Size(size), fmt_type=fstype)
 
         blivet_handle.create_device(lv)
 

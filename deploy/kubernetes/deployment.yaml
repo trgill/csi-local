@@ -1,0 +1,13 @@
+apiVersion: storage.k8s.io/v1beta1
+kind: CSIDriver
+metadata:
+  name: springfield-csi-driver
+  namespace: springfield-csi
+  labels:
+    app.kubernetes.io/name: springfield-csi-driver
+    app.kubernetes.io/instance: springfield-csi-driver
+    app.kubernetes.io/version: "v0.0.1"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  attachRequired: false
+  podInfoOnMount: true
