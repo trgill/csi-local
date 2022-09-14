@@ -22,8 +22,6 @@ from csi_pb2_grpc import NodeServicer
 import csi_pb2
 from csi_pb2 import NodeGetCapabilitiesResponse, NodeGetInfoResponse, NodePublishVolumeResponse, NodeGetVolumeStatsResponse, NodeExpandVolumeResponse, NodeServiceCapability, NodeUnpublishVolumeResponse, Topology, VolumeUsage, VolumeCondition
 
-from blivet.util import mount, umount
-
 import grpc
 
 import controller
@@ -107,7 +105,8 @@ class SpringfieldNodeService(NodeServicer):
         volume_map = controller.get_volume(request.volume_id)
 
         try:
-            request.device.format.teardown(mountpoint=request.target_path)
+            volume_map.device.format.teardown(
+                mountpoint=request.target_path)
         except OSError as e:
             self.logger.warning("Warining umount filed: %s : %s" %
                                 (request.target_path, e.strerror))

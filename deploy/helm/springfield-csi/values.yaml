@@ -1,0 +1,56 @@
+# Default values for springfield-csi.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+image:
+    name: springfield
+    springfield-repo: ghcr.io/trgill/
+    csi-driver-name: springfield-csi-driver:0.0.1
+    imagePullPolicy: Always
+    group: csi-driver 
+    app: springfield-csi-driver:0.0.1 
+
+
+csiDriverRegistrar:
+  repository: quay.io/k8scsi/csi-node-driver-registrar
+  tag: v2.1.0
+  pullPolicy: IfNotPresent
+
+csiExternalProvisioner:
+  repository: quay.io/k8scsi/csi-provisioner
+  tag: v2.1.0
+  pullPolicy: IfNotPresent
+
+csiExternalAttacher:
+  repository: quay.io/k8scsi/csi-attacher
+  tag: v3.1.0
+  pullPolicy: IfNotPresent
+
+csiExternalResizer:
+  repository: quay.io/k8scsi/csi-resizer
+  tag: v1.1.0
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name:
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 80

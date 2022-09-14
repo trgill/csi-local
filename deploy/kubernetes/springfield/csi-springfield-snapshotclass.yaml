@@ -1,0 +1,13 @@
+# Usage of the v1 API implies that the cluster must have
+# external-snapshotter v4.x installed.
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshotClass
+metadata:
+  name: csi-springfield-snapclass
+  labels:
+    app.kubernetes.io/instance: springfield.csi.k8s.io
+    app.kubernetes.io/part-of: csi-driver-springfield
+    app.kubernetes.io/name: csi-springfield-snapclass
+    app.kubernetes.io/component: volumesnapshotclass
+driver: springfield.csi.k8s.io #csi-springfield
+deletionPolicy: Delete

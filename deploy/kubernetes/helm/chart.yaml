@@ -1,0 +1,11 @@
+apiVersion: v2
+name: springfield-csi-driver
+description: Springfield CSI Driver Helm Chart
+kubeVersion: ">=1.15"
+type: application
+# chart version
+version: 0.1
+appVersion: v0.0.1
+maintainers:
+  - name: Red Hat
+    email: tgill@redhat.com 

@@ -1,11 +1,26 @@
 
 # Overview
 
-Blivet provides high level APIs to most Linux storage technologies.
+Blivet provides high level APIs to most Linux storage:
+
+    lvm
+        linear
+        raid
+        thinp
+        vdo
+        cache
+        pv add/remove
+        encrypted pvs
+        md raid pvs
+    stratis
+    md raid
+    encryption (luks)
+    btrfs
+
 
 This is a prototype of a CSI driver over the Blivet API.
 
-Currently just a LVM pool is used, but future enhancements will add more
+Currently a LVM volume group is used, but future enhancements will add more
 features.
 
 
