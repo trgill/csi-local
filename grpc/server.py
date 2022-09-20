@@ -26,13 +26,7 @@ import socket
 from pathlib import Path
 import csi_pb2_grpc
 
-import blivet
-from blivet.devices import StorageDevice
-from blivet.devices import LVMLogicalVolumeDevice
-from blivet.devices import LVMVolumeGroupDevice
-from blivet.size import Size
-
-from blivet.util import set_up_logging
+import dbus
 import driver
 import controller
 from identity import SpringfieldIdentityService
@@ -45,8 +39,6 @@ from node import SpringfieldNodeService
 
 STORAGE_DEVS_FILE = "storage_devs.json"
 
-
-set_up_logging()
 
 
 def run_server(port, addr, nodeid):
@@ -88,36 +80,17 @@ def initilize_disks(init_disks):
         logging.error('Failed to parse {}', STORAGE_DEVS_FILE)
         exit()
 
-    blivet_handle.reset()
 
     pvs = list()
 
     for dev_path in storage_devs:
         device = blivet_handle.devicetree.get_device_by_path(dev_path)
 
-        if device is None:
-            logging.warning('device %s not found', dev_path)
-            continue
-
-        if device.is_disk and device.is_empty:
-            disks_to_use.append(device)
-
-            blivet_handle.format_device(
-                device, blivet.formats.get_format('lvmpv', device=device.path))
-
-            pvs.append(device)
-        else:
-            logging.warning(
-                'device %s not empty or not a valid device', dev_path)
-            continue
 
     if len(disks_to_use) == 0:
         logging.error("No useable disks")
         exit()
 
-    controller.volume_group = blivet_handle.new_vg(
-        name=VOLUME_GROUP_NAME, parents=pvs)
-    blivet_handle.create_device(controller.volume_group)
 
     try:
         blivet_handle.do_it()

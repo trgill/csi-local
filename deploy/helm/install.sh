@@ -5,12 +5,4 @@
 
 helm install --debug springfield-csi springfield-csi
 
-#helm template springfield-csi-driver springfield-csi --namespace springfield-csi > springfield_deploy.yaml 
-
-#kubectl delete -f springfield_deploy.yaml
-#echo "delete of old version completed"
-
-#kubectl create -f springfield_deploy.yaml 
-#echo "create completed"
-
 helm get manifest springfield-csi

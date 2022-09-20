@@ -8,17 +8,18 @@ if [[ -z "$GITHUB_PAT" ]]; then
     exit 1
 fi
 
-podman logout ghcr.io -u trgill
+docker logout ghcr.io -u trgill
 
-export VERSION="0.0.1"
-podman build -f deploy/docker/Dockerfile --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') -t springfield-csi-driver:0.0.1 .
+export VERSION="0.1.0"
 
-podman image ls localhost/springfield-csi-driver
+sudo docker build -f deploy/docker/Dockerfile --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') -t springfield-csi-driver:$VERSION .
 
-echo $GITHUB_PAT | podman login ghcr.io -u trgill --password-stdin
+docker image ls localhost/springfield-csi-driver
 
-podman tag springfield-csi-driver:$VERSION ghcr.io/trgill/springfield-csi-driver:$VERSION
+echo $GITHUB_PAT | docker login ghcr.io -u trgill --password-stdin
 
-podman push ghcr.io/trgill/springfield-csi-driver:$VERSION
+sudo docker tag springfield-csi-driver:$VERSION ghcr.io/trgill/springfield-csi-driver:$VERSION
 
-podman images ghrc.io/trgill/
+docker push ghcr.io/trgill/springfield-csi-driver:$VERSION
+
+docker images ghrc.io/trgill/
