@@ -32,13 +32,13 @@ import controller
 from identity import SpringfieldIdentityService
 from controller import SpringfieldControllerService
 from controller import disks_to_use
-from controller import blivet_handle
+#from controller import dbus_handle
+
 from controller import VOLUME_GROUP_NAME
 
 from node import SpringfieldNodeService
 
 STORAGE_DEVS_FILE = "storage_devs.json"
-
 
 
 def run_server(port, addr, nodeid):
@@ -80,23 +80,13 @@ def initilize_disks(init_disks):
         logging.error('Failed to parse {}', STORAGE_DEVS_FILE)
         exit()
 
-
     pvs = list()
 
     for dev_path in storage_devs:
-        device = blivet_handle.devicetree.get_device_by_path(dev_path)
-
+        disks_to_use.append(dev_path)
 
     if len(disks_to_use) == 0:
         logging.error("No useable disks")
-        exit()
-
-
-    try:
-        blivet_handle.do_it()
-
-    except BaseException as error:
-        logging.error('An exception occurred: {}'.format(error))
         exit()
 
 
@@ -119,5 +109,5 @@ if __name__ == '__main__':
     init_disks = args.init_disks
 
     logging.basicConfig()
-    initilize_disks(init_disks)
+    # initilize_disks(init_disks)
     run_server(port, addr, nodeid)

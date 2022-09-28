@@ -8,7 +8,7 @@ if [[ -z "$GITHUB_PAT" ]]; then
     exit 1
 fi
 
-docker logout ghcr.io -u trgill
+docker logout ghcr.io
 
 export VERSION="0.1.0"
 
@@ -22,4 +22,4 @@ sudo docker tag springfield-csi-driver:$VERSION ghcr.io/trgill/springfield-csi-d
 
 docker push ghcr.io/trgill/springfield-csi-driver:$VERSION
 
-docker images ghrc.io/trgill/
+docker images ghcr.io/trgill/springfield-csi-driver

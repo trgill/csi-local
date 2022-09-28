@@ -27,16 +27,14 @@ import grpc
 
 import csi_pb2
 from csi_pb2 import ControllerServiceCapability
-import blivet
-from blivet.size import Size, B
-from blivet.formats.swap import SwapSpace
-from blivet.devices import LVMLogicalVolumeDevice
 from csi_pb2_grpc import ControllerServicer
 import json
+import dbus_client
 
 VOLUME_GROUP_NAME = "springfield"
 
-blivet_handle = blivet.Blivet()   # create an instance of Blivet
+#dbus_handle = dbus_client.DbusClient()
+# dbus_handle.get_objects()
 
 volume_list = list()
 vg_list = list()
@@ -72,7 +70,7 @@ def print_volume_list():
         print("Volume ID : ", volume_map.csi_volume.volume_id)
         print("\tCapacity : ", volume_map.csi_volume.capacity_bytes)
     print("Device Tree:")
-    print(str(blivet_handle.devicetree))
+    print(str(dbus_handle.devicetree))
     print("\n")
 
 
@@ -83,16 +81,16 @@ def destroy(device):
 
     ancestors = device.ancestors  # ascending distance ordering
 
-    blivet_handle.devicetree.recursive_remove(device)
+    dbus_handle.devicetree.recursive_remove(device)
     ancestors.remove(device)
     leaves = [a for a in ancestors if a.isleaf]
     while leaves:
         for ancestor in leaves:
 
             if ancestor.is_disk:
-                blivet_handle.devicetree.recursive_remove(ancestor)
+                dbus_handle.devicetree.recursive_remove(ancestor)
             else:
-                blivet_handle.destroy_device(ancestor)
+                dbus_handle.destroy_device(ancestor)
 
             ancestors.remove(ancestor)
 
@@ -182,13 +180,13 @@ class SpringfieldControllerService(ControllerServicer):
                 )
 
         # Create the Volume using Blivet
-        lv = blivet_handle.new_lv(name=name, parents=[volume_group],
-                                  size=Size(size), fmt_type=fstype)
+        lv = dbus_handle.new_lv(name=name, parents=[volume_group],
+                                size=Size(size), fmt_type=fstype)
 
-        blivet_handle.create_device(lv)
+        dbus_handle.create_device(lv)
 
         try:
-            blivet_handle.do_it()
+            dbus_handle.do_it()
         except BaseException as error:
             print('An exception occurred: {}'.format(error))
             context.abort(
@@ -221,11 +219,11 @@ class SpringfieldControllerService(ControllerServicer):
         if volume_map == None:
             return csi_pb2.DeleteVolumeResponse()
 
-        blivet_handle.reset()
+        dbus_handle.reset()
 
         # TODO: catch the errors thrown by do_it()
         try:
-            device = blivet_handle.devicetree.get_device_by_path(
+            device = dbus_handle.devicetree.get_device_by_path(
                 volume_map.device.path)
             if device == None:
                 context.abort(
@@ -233,8 +231,8 @@ class SpringfieldControllerService(ControllerServicer):
                         error)
                 )
 
-            blivet_handle.destroy_device(device)
-            blivet_handle.do_it()
+            dbus_handle.destroy_device(device)
+            dbus_handle.do_it()
         except BaseException as error:
             print('An exception occurred: {}'.format(error))
             context.abort(
@@ -411,7 +409,7 @@ class SpringfieldControllerService(ControllerServicer):
         for key, value in request.parameters:
             print(key, value)
 
-        device = blivet_handle.devicetree.get_device_by_name(VOLUME_GROUP_NAME)
+        device = dbus_handle.devicetree.get_device_by_name(VOLUME_GROUP_NAME)
 
         return csi_pb2.GetCapacityResponse(available_capacity=int(volume_group.free_space.convert_to(B)))
 

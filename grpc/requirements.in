@@ -1,0 +1,2 @@
+dbus_python==1.2.18
+protobuf==4.21.7
