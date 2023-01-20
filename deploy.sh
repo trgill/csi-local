@@ -6,7 +6,7 @@
 
 export CLUSTER_NAME=springfield-test
 export KUBERNETES_VERSION=v1.24.2
-export HELM_VERSION=v3.10.3
+export HELM_VERSION=v3.9.0
 export BINDIR=./bin
 export TMPDIR=/tmp/springfield
 export CERT_MANAGER_VERSION=v1.7.0
@@ -18,31 +18,34 @@ export CURL="curl -sSLf"
 export LINVENESS_PROBE=bin/liveness
 
 # CSI sidecar versions
-export EXTERNAL_PROVISIONER_VERSION=3.2.1
-export EXTERNAL_RESIZER_VERSION=1.5.0
 export NODE_DRIVER_REGISTRAR_VERSION=2.5.1
 export LIVENESSPROBE_VERSION=2.7.0
-export EXTERNAL_SNAPSHOTTER_VERSION=6.0.1
 
 export SIDECAR_SRC=sidecars
 export LIVENESSPROBE_SRC=$SIDECAR_SRC/livenessprobe
-export EXTERNAL_PROVISIONER_SRC=$SIDECAR_SRC/csi-provisioner
-export NODE_DRIVER_REGISTRAR_SRC=$SIDECAR_SRC/node-driver-registrar
-export EXTERNAL_RESIZER_SRC=$SIDECAR_SRC/external-resizer
-export EXTERNAL_SNAPSHOTTER_SRC=$SIDECAR_SRC/external-snapshotter
 
-
+echo $LIVENESSPROBE_SRC
 
 mkdir -p "$SIDECAR_SRC"
 
 
-if [[ -z "$GITHUB_PAT" ]]; then
-    echo "Must provide GITHUB_PAT with write access to ghcr.io/trgill/springfield-csi-driver in environment" 1>&2
-    exit 1
-fi
-
 if [ ! -d ./bin ]; then
     mkdir -p bin
+fi
+
+if [ ! -d $SIDECAR_SRC ]; then
+    mkdir -p $SIDECAR_SRC
+fi
+
+
+if [ ! -d $LIVENESSPROBE_SRC ]; then
+    mkdir -p $LIVENESSPROBE_SRC
+fi
+
+if [ ! -f ./bin/livenessprobe ]; then
+    $CURL https://github.com/kubernetes-csi/livenessprobe/archive/v$LIVENESSPROBE_VERSION.tar.gz | tar zxf - --strip-components 1 -C $LIVENESSPROBE_SRC
+    make -C $LIVENESSPROBE_SRC
+    cp $LIVENESSPROBE_SRC/bin/livenessprobe ./bin
 fi
 
 # Install kind
@@ -63,26 +66,9 @@ if [ ! -f "$HELM" ]; then
             | tar xvz -C ./bin --strip-components 1 linux-amd64/helm
 fi
 
-
 $KIND delete cluster --name=$CLUSTER_NAME
 
-
-docker logout ghcr.io
-
 export VERSION="0.1.0"
-
-# TODO: Add logic to only build the container when necessary.
-sudo docker build --no-cache -f deploy/docker/Dockerfile --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') -t springfield-csi-driver:devel .
-
-# docker image ls localhost/springfield-csi-driver
-echo $GITHUB_PAT | docker login ghcr.io -u trgill --password-stdin
-
-sudo docker tag springfield-csi-driver:devel ghcr.io/trgill/springfield-csi-driver:devel
-docker push ghcr.io/trgill/springfield-csi-driver:devel
-docker save -o $BINDIR/springfield-csi-driver:devel.image ghcr.io/trgill/springfield-csi-driver:devel
-
-docker images ghcr.io/trgill/springfield-csi-driver
-
 
 # setup directories for building the kind cluster
 rm -rf $TMPDIR || true
@@ -95,6 +81,7 @@ mkdir -p $BINDIR || true
 
 # copy kind config files
 cp tests/kind/springfield-cluster.yaml $TMPDIR
+cp deploy/scheduler/scheduler-config-v1beta2.yaml $TMPDIR/scheduler/scheduler-config.yaml
 
 # create the cluster
 $KIND create cluster --name=$CLUSTER_NAME --config $TMPDIR/springfield-cluster.yaml --image kindest/node:$KUBERNETES_VERSION

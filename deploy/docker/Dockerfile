@@ -17,32 +17,18 @@
 # Red Hat Author(s): Todd Gill <tgill@redhat.com>
 #
 
-FROM ubuntu:22.04
-
-USER root
+FROM python:3.9
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update \
-    && apt-get -y install --no-install-recommends \
-    apt-utils \
-    build-essential \
-    glib-2.0 \
-    bash \
-    file \
-    python3-dev \
-    python-dbus-dev \
-    python3.10 \
-    python3-pip \
-    libdbus-1-3 \
-    libdbus-1-dev \
-    dbus
+USER root
 
+RUN apt-get update && \
+    apt-get -y install --no-install-recommends \
+    build-essential dbus-daemon python3-dbus libpython3-dev libdbus-1-dev \
+    libdbus-glib-1-dev libgirepository1.0-dev
 
-ARG RELEASE=master
-ARG BUILD_DATE
-
-RUN apt-get install -y dbus
+RUN pip install dbus-python protobuf grpcio grpcio-tools
 
 LABEL maintainers="Todd Gill <tgill@redhat.com>" \
     version="0.1.1" \
@@ -64,13 +50,6 @@ WORKDIR /csi-springfield-driver
 ADD ./grpc .
 RUN chmod 755 /csi-springfield-driver/entrypoint.sh
 
-RUN pip3 install --upgrade pip
-RUN pip3 --version
-RUN pip3 install --upgrade setuptools 
-RUN pip3 install --no-cache-dir -r requirements.txt
-RUN pip3 install -Iv grpcio-tools==1.38.1
-
-COPY ./grpc/com.redhat.lvmdbus1.conf /etc/dbus-1/system.d/
 COPY ./bin/livenessprobe /csi-springfield-driver/sidecars
 
 RUN mkdir /var/run/dbus/

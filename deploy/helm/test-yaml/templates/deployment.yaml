@@ -1,7 +1,6 @@
-apiVersion: apps/v1
-kind: Deployment
-
-metadata:
+kind: Pod
+spec:
+  containers:
   - name: springfield-csi-driver
     image: ghcr.io/trgill/springfield-csi-driver:devel
     imagePullPolicy: Always
@@ -11,39 +10,49 @@ metadata:
 # Defining port which will be used to GET plugin health status
 # 9808 is default, but can be changed.
 #
-    ports:
-    - containerPort: 9808
-      name: healthz
-      protocol: TCP
-    livenessProbe:
-      failureThreshold: 5
-      httpGet:
-        path: /healthz
-        port: healthz
-      initialDelaySeconds: 10
-      timeoutSeconds: 3
-      periodSeconds: 2
+ports:
+  - containerPort: 9808
+    name: healthz
+    protocol: TCP
+  livenessProbe:
+    failureThreshold: 5
+    httpGet:
+      path: /healthz
+      port: healthz
+    initialDelaySeconds: 10
+    timeoutSeconds: 3
+    periodSeconds: 2
+# The probe
+livenessProbe:
+  failureThreshold: 5
+  httpGet:
+    path: /healthz
+    port: healthz
+  initialDelaySeconds: 10
+  timeoutSeconds: 3
+  periodSeconds: 2
+
 #
 # Define mounts
 #
-   volumeMounts:
-    - mountPath: /csi
-      name: socket-dir
-    - mountPath: /var/lib/kubelet/pods
-      mountPropagation: Bidirectional
-      name: mountpoint-dir
-    args:
-    - --v=5
-    - --endpoint=$(CSI_ENDPOINT)
-    - --nodeid=$(KUBE_NODE_NAME)
-    env:
-    - name: CSI_ENDPOINT
-      value: unix:///csi/csi.sock
-    - name: KUBE_NODE_NAME
-      valueFrom:
-        fieldRef:
-          apiVersion: v1
-          fieldPath: spec.nodeName
+volumeMounts:
+  - mountPath: /csi
+    name: socket-dir
+  - mountPath: /var/lib/kubelet/pods
+    mountPropagation: Bidirectional
+    name: mountpoint-dir
+  args:
+  - --v=5
+  - --endpoint=$(CSI_ENDPOINT)
+  - --nodeid=$(KUBE_NODE_NAME)
+  env:
+  - name: CSI_ENDPOINT
+    value: unix:///csi/csi.sock
+  - name: KUBE_NODE_NAME
+    valueFrom:
+      fieldRef:
+        apiVersion: v1
+        fieldPath: spec.nodeName
 #
 # Spec for liveness probe sidecar container
 # 
@@ -56,3 +65,4 @@ metadata:
     args:
     - --v=4
     - --csi-address=/csi/csi.sock
+#
