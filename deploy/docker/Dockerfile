@@ -17,7 +17,7 @@
 # Red Hat Author(s): Todd Gill <tgill@redhat.com>
 #
 
-FROM python:3.10.6
+FROM ubuntu:22.04
 
 USER root
 
@@ -25,6 +25,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update \
     && apt-get -y install --no-install-recommends \
+    apt-utils \
     build-essential \
     glib-2.0 \
     bash \
@@ -44,32 +45,33 @@ ARG BUILD_DATE
 RUN apt-get install -y dbus
 
 LABEL maintainers="Todd Gill <tgill@redhat.com>" \
-    version="0.0.1" \
+    version="0.1.1" \
+    release="1" \
     description="Springfield CSI Plugin" \
+    summary="Springfield CSI driver" \
     org.label-schema.schema-version="1.0" \
     org.label-schema.name="springfield-csi" \
     org.label-schema.description="Springfield CSI Plugin" \
     org.label-schema.url="https://github.com/trgill/csi-local" \
     org.label-schema.build-date=${BUILD_DATE} \
-    org.opencontainers.image.source="https://github.com/trgill/csi-local"
+    org.opencontainers.image.source="https://github.com/trgill/csi-local" \
+    org.opencontainers.image.description="Springfield prototype CSI driver"
 
 RUN mkdir /csi-springfield-driver
+RUN mkdir /csi-springfield-driver/sidecars
+
 WORKDIR /csi-springfield-driver
 ADD ./grpc .
 RUN chmod 755 /csi-springfield-driver/entrypoint.sh
 
 RUN pip3 install --upgrade pip
 RUN pip3 --version
-#RUN pip3 install --upgrade setuptools
-#RUN pip3 install --no-cache-dir -r requirements.txt
-
-RUN python3 -m pip install grpcio
-RUN python3 -m pip install grpcio-tools
-RUN python3 -m pip install protobuf
-RUN python3 -m pip install dbus-python
-
+RUN pip3 install --upgrade setuptools 
+RUN pip3 install --no-cache-dir -r requirements.txt
+RUN pip3 install -Iv grpcio-tools==1.38.1
 
 COPY ./grpc/com.redhat.lvmdbus1.conf /etc/dbus-1/system.d/
+COPY ./bin/livenessprobe /csi-springfield-driver/sidecars
 
 RUN mkdir /var/run/dbus/
 

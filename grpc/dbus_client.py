@@ -21,36 +21,41 @@ import dbus
 import os
 from traceback import print_exc
 
-BUS_NAME = os.getenv('LVM_DBUS_NAME', 'com.redhat.lvmdbus1')
-BASE_INTERFACE = 'com.redhat.lvmdbus1'
-MANAGER_INT = BASE_INTERFACE + '.Manager'
-MANAGER_OBJ = '/' + BASE_INTERFACE.replace('.', '/') + '/Manager'
+BUS_NAME = os.getenv("LVM_DBUS_NAME", "com.redhat.lvmdbus1")
+BASE_INTERFACE = "com.redhat.lvmdbus1"
+MANAGER_INT = BASE_INTERFACE + ".Manager"
+MANAGER_OBJ = "/" + BASE_INTERFACE.replace(".", "/") + "/Manager"
 
 
 class DbusClient:
     def __init__(self):
-        try:
-            self.bus = dbus.SystemBus()
-            self.bus.list_names()
+        print("DbusClient __init__()")
+        # try:
 
-        except dbus.DBusException:
-            print_exc()
-            exit(1)
+        #     self.bus = dbus.SystemBus()
+        #     self.bus.list_names()
+
+        # except dbus.DBusException:
+        #     print_exc()
+        #     exit(1)
 
     def get_objects(self):
-        try:
-            object_manager_object = self.bus.get_object(
-                BUS_NAME, "/com/redhat/lvmdbus1", introspect=False)
+        print("get_objects()")
+        # try:
+        #     object_manager_object = self.bus.get_object(
+        #         BUS_NAME, "/com/redhat/lvmdbus1", introspect=False
+        #     )
 
-            manager_interface = dbus.Interface(
-                object_manager_object, "org.freedesktop.DBus.ObjectManager")
+        #     manager_interface = dbus.Interface(
+        #         object_manager_object, "org.freedesktop.DBus.ObjectManager"
+        #     )
 
-            objects = manager_interface.GetManagedObjects()
+        #     objects = manager_interface.GetManagedObjects()
 
-            for object_path, v in objects.items():
-                print(object_path)
+        #     for object_path, v in objects.items():
+        #         print(object_path)
 
-            for interface in v.keys():
-                print(interface)
-        except dbus.DBusException:
-            print_exc()
+        #     for interface in v.keys():
+        #         print(interface)
+        # except dbus.DBusException:
+        #     print_exc()

@@ -30,41 +30,64 @@ spec:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       
       containers:
-        - name: {{ .Chart.Name }}
-          securityContext:
-            {{- toYaml .Values.securityContext | nindent 12 }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+        - name: springfield-controller
+          image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
+          command:
+            - /springfield-controller
+            - --cert-dir=/certs
           ports:
-            - name: http
-              containerPort: 80
+            - containerPort: 9443
+              name: webhook
               protocol: TCP
-          livenessProbe:
-            httpGet:
-              path: /
-              port: http
+            - containerPort: 9808
+              name: healthz
+              protocol: TCP
+            - containerPort: 8081
+              name: readyz
+              protocol: TCP
+            - containerPort: 8080
+              name: metrics
+              protocol: TCP
           readinessProbe:
             httpGet:
-              path: /
-              port: http
-          resources:
-            {{- toYaml .Values.resources | nindent 12 }}
+              path: /readyz
+              port: readyz
+              scheme: HTTP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: healthz
+            failureThreshold: 3
+            initialDelaySeconds: 10
+            timeoutSeconds: 3
+            periodSeconds: 60
+          {{- with .Values.image.pullPolicy }}
+          imagePullPolicy: {{ . }}
+          {{- end }}
+          {{- with .Values.resources.springfield_controller }}
+          resources: {{ toYaml . | nindent 12 }}
+          {{- end }}
           volumeMounts:
-            - name: system-dbus-socket
-              mountPath: /var/run/dbus/system_bus_socket
+            - name: socket-dir
+              mountPath: /run/springfield
+            - name: certs
+              mountPath: /certs
 
-      volumes:
-      {{- toYaml .Values.volumes | default "" | nindent 8 }}     
-
-      {{- with .Values.nodeSelector }}
-      nodeSelector:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.affinity }}
-      affinity:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.tolerations }}
-      tolerations:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+        - name: liveness-probe
+          {{- if .Values.image.csi.livenessProbe }}
+          image: {{ .Values.image.csi.livenessProbe }}
+          {{- else }}
+          image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
+          {{- end }}
+          {{- with .Values.image.pullPolicy }}
+          imagePullPolicy: {{ . }}
+          {{- end }}
+          command:
+            - /livenessprobe
+            - --csi-address=/run/springfield/csi-springfield.sock
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /run/springfield
+          {{- with .Values.resources.liveness_probe }}
+          resources: {{ toYaml . | nindent 12 }}
+          {{- end }}

@@ -21,7 +21,7 @@ metadata:
 spec:
   containers:
   - name: ubuntu
-    image: quay.io/cybozu/ubuntu:20.04
+    image: ubuntu:20.04
     command: ["/usr/local/bin/pause"]
     volumeMounts:
     - mountPath: /test1
@@ -34,7 +34,7 @@ spec:
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
-  name: springfield-pvc-thin
+  name: topolvm-pvc-thin
 spec:
   accessModes:
   - ReadWriteOnce
@@ -55,7 +55,7 @@ metadata:
 spec:
   containers:
   - name: ubuntu
-    image: quay.io/cybozu/ubuntu:20.04
+    image: ubuntu:20.04
     command: ["/usr/local/bin/pause"]
     volumeMounts:
     - mountPath: /test1
@@ -76,7 +76,7 @@ metadata:
 spec:
   containers:
   - name: ubuntu
-    image: quay.io/cybozu/ubuntu:20.04
+    image: ubuntu:20.04
     command: ["/usr/local/bin/pause"]
     volumeMounts:
     - mountPath: /test1
@@ -92,3 +92,4 @@ spec:
             requests:
               storage: 1Gi
           storageClassName: springfield-provisioner
+

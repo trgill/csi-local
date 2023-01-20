@@ -8,7 +8,7 @@ image:
   repository: ghcr.io/trgill/springfield-csi-driver
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "0.1.0"
+  tag: "devel"
   csi:
     # image.csi.nodeDriverRegistrar -- Specify csi-node-driver-registrar: image.
     # If not specified, `ghcr.io/topolvm/topolvm-with-sidecar:{{ .Values.image.tag }}` will be used.
@@ -61,9 +61,9 @@ volumes:
     hostPath:
       path: /var/run/dbus/system_bus_socket
 
-#volumeMounts:
-#  - name: system-dbus-socket
-#    mountPath: /var/run/dbus/system_bus_socket
+volumeMounts:
+  - name: socket-dir
+    mountPath: /var/run/
 
 service:
   type: ClusterIP

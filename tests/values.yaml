@@ -1,0 +1,27 @@
+controller:
+  replicaCount: 1
+
+lvmd:
+  managed: false
+
+podSecurityPolicy:
+  create: false
+
+cert-manager:
+  enabled: true
+
+storageClasses:
+  - name: springfield-provisioner
+    storageClass:
+      fsType: xfs
+      isDefaultClass: false
+      volumeBindingMode: WaitForFirstConsumer
+      allowVolumeExpansion: true
+  - name: springfield-provisioner-lvm
+    storageClass:
+      fsType: xfs
+      isDefaultClass: false
+      volumeBindingMode: WaitForFirstConsumer
+      allowVolumeExpansion: true
+      additionalParameters:
+        "springfield.redhat.com/device-class": "springfield-lvm"
