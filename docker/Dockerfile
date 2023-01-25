@@ -25,8 +25,9 @@ USER root
 
 RUN apt-get update && \
     apt-get -y install --no-install-recommends \
-        build-essential dbus
+        build-essential dbus-daemon python3-dbus libpython3-dev libdbus-1-dev libdbus-glib-1-dev libgirepository1.0-dev 
 
+RUN pip install dbus-python
 
 LABEL maintainers="Todd Gill <tgill@redhat.com>" \
     version="0.1.1" \
