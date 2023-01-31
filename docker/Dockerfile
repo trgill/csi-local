@@ -25,7 +25,7 @@ USER root
 
 RUN apt-get update && \
     apt-get -y install --no-install-recommends \
-        build-essential dbus-daemon python3-dbus libpython3-dev libdbus-1-dev libdbus-glib-1-dev libgirepository1.0-dev 
+    build-essential dbus-daemon python3-dbus libpython3-dev libdbus-1-dev libdbus-glib-1-dev libgirepository1.0-dev 
 
 RUN pip install dbus-python
 
@@ -42,15 +42,15 @@ LABEL maintainers="Todd Gill <tgill@redhat.com>" \
     org.opencontainers.image.source="https://github.com/trgill/csi-local" \
     org.opencontainers.image.description="Springfield prototype Docker driver"
 
-RUN mkdir /csi-springfield-driver
+RUN mkdir /docker-springfield-driver
 
-WORKDIR /csi-springfield-driver
+WORKDIR /docker-springfield-driver
 
 ADD ./src .
 
-RUN chmod 755 /csi-springfield-driver/entrypoint.sh
+RUN chmod 755 /docker-springfield-driver/entrypoint.sh
 
 ENV DBUS_SYSTEM_BUS_ADDRESS=unix:path=/var/run/dbus/system_bus_socket
 ENV PATH="/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-ENTRYPOINT ["/csi-springfield-driver/entrypoint.sh"]
+ENTRYPOINT ["/docker-springfield-driver/entrypoint.sh"]

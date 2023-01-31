@@ -1,16 +1,11 @@
 #!/bin/bash -x
 
-echo "Starting container"
-which python3
-ls
+echo "Starting container with: $@"
+
 pwd
 
-pip3 show dbus-python
-
-ping -c 3 192.168.122.105
-
 set +e
-/usr/bin/python3 /csi-springfield-driver/main.py
+/usr/bin/python3 /docker-springfield-driver/main.py "$@"
 set -e
 
 echo "exiting script"
