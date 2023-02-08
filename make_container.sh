@@ -21,4 +21,4 @@ podman tag springfield-csi-driver:$VERSION ghcr.io/trgill/springfield-csi-driver
 
 podman push ghcr.io/trgill/springfield-csi-driver:$VERSION
 
-podman images ghrc.io/trgill/
+podman images ghcr.io/trgill/
