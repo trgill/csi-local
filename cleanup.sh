@@ -5,3 +5,5 @@ export CLUSTER_NAME=springfield-test
 
 $KIND delete cluster --name=$CLUSTER_NAME
 
+systemctl restart containerd 
+systemctl restart docker 

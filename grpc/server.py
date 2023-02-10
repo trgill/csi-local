@@ -20,18 +20,21 @@
 import concurrent.futures as futures
 import csi_pb2_grpc
 import grpc
-import logging
+
 import argparse
 import json
 import socket
+import sys
 from pathlib import Path
 
 
 from identity import SpringfieldIdentityService
 from controller import SpringfieldControllerService
 from controller import disks_to_use
+import dbus_client
 
-# from controller import dbus_handle
+
+from controller import logger
 
 from controller import VOLUME_GROUP_NAME
 
@@ -42,7 +45,8 @@ STORAGE_DEVS_FILE = "storage_devs.json"
 
 def run_server(port, addr, nodeid):
 
-    logging.info("Starting grpc server:")
+    logger.info("Starting grpc server:")
+
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     csi_pb2_grpc.add_ControllerServicer_to_server(
         SpringfieldControllerService(nodeid=nodeid), server
@@ -52,8 +56,10 @@ def run_server(port, addr, nodeid):
         SpringfieldNodeService(nodeid=nodeid), server
     )
 
-    logging.info("server.add_insecure_port()")
-    server.add_insecure_port(addr + str(port))
+    dbus_handle = dbus_client.DbusClient()
+    dbus_handle.get_objects()
+    logger.info("server.add_insecure_port()")
+    server.add_insecure_port("unix://csi/csi.sock")
     server.start()
     server.wait_for_termination()
 
@@ -67,18 +73,18 @@ def initilize_disks(init_disks):
     path = Path(STORAGE_DEVS_FILE)
 
     if not path.is_file():
-        logging.warning("%s file not found in %s", STORAGE_DEVS_FILE, Path.cwd())
+        logger.warning("%s file not found in %s", STORAGE_DEVS_FILE, Path.cwd())
         # look in the grpc subdirectory
         path = Path("grpc/" + STORAGE_DEVS_FILE)
         if not path.is_file():
-            logging.error("%s file not found in %s", STORAGE_DEVS_FILE, Path.cwd())
+            logger.error("%s file not found in %s", STORAGE_DEVS_FILE, Path.cwd())
             exit()
 
     try:
         with open(path) as json_file:
             storage_devs = json.load(json_file)["use_for_csi_storage"]
     except ValueError:
-        logging.error("Failed to parse {}", STORAGE_DEVS_FILE)
+        logger.error("Failed to parse {}", STORAGE_DEVS_FILE)
         exit()
 
     pvs = list()
@@ -87,7 +93,7 @@ def initilize_disks(init_disks):
         disks_to_use.append(dev_path)
 
     if len(disks_to_use) == 0:
-        logging.error("No useable disks")
+        logger.error("No useable disks")
         exit()
 
 
@@ -121,6 +127,5 @@ if __name__ == "__main__":
     nodeid = args.nodeid
     init_disks = args.init_disks
 
-    logging.basicConfig()
     # initilize_disks(init_disks)
     run_server(port, addr, nodeid)

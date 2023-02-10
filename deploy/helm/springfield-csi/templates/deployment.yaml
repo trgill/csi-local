@@ -1,93 +1,58 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: v1
+kind: Pod
 metadata:
-  name: {{ include "springfield-csi.fullname" . }}
+  name: springfield-csi-driver
   labels:
-    {{- include "springfield-csi.labels" . | nindent 4 }}
+    app: springfield-csi-driver
 spec:
-  {{- if not .Values.autoscaling.enabled }}
-  replicas: {{ .Values.replicaCount }}
-  {{- end }}
-          
-  selector:
-    matchLabels:
-      {{- include "springfield-csi.selectorLabels" . | nindent 6 }}
-  template:
-    metadata:
-      {{- with .Values.podAnnotations }}
-      annotations:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      labels:
-        {{- include "springfield-csi.selectorLabels" . | nindent 8 }}
-    spec:
-      {{- with .Values.imagePullSecrets }}
-      imagePullSecrets:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      serviceAccountName: {{ include "springfield-csi.serviceAccountName" . }}
-      securityContext:
-        {{- toYaml .Values.podSecurityContext | nindent 8 }}
-      
-      containers:
-        - name: springfield-controller
-          image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
-          command:
-            - /springfield-controller
-            - --cert-dir=/certs
-          ports:
-            - containerPort: 9443
-              name: webhook
-              protocol: TCP
-            - containerPort: 9808
-              name: healthz
-              protocol: TCP
-            - containerPort: 8081
-              name: readyz
-              protocol: TCP
-            - containerPort: 8080
-              name: metrics
-              protocol: TCP
-          readinessProbe:
-            httpGet:
-              path: /readyz
-              port: readyz
-              scheme: HTTP
-          livenessProbe:
-            httpGet:
-              path: /healthz
-              port: healthz
-            failureThreshold: 3
-            initialDelaySeconds: 10
-            timeoutSeconds: 3
-            periodSeconds: 60
-          {{- with .Values.image.pullPolicy }}
-          imagePullPolicy: {{ . }}
-          {{- end }}
-          {{- with .Values.resources.springfield_controller }}
-          resources: {{ toYaml . | nindent 12 }}
-          {{- end }}
-          volumeMounts:
-            - name: socket-dir
-              mountPath: /run/springfield
-            - name: certs
-              mountPath: /certs
+  containers:
+  - name: springfield-csi-driver
+    image: ghcr.io/trgill/springfield-csi-driver:devel
+    imagePullPolicy: Always
+    securityContext:
+      privileged: true
+    env:
+      - name: CSI_ENDPOINT
+        value: unix:///csi/csi.sock
+      - name: KUBE_NODE_NAME
+        valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: spec.nodeName
+    ports:
+    - containerPort: 9898
+      name: healthz
+      protocol: TCP
+    livenessProbe:
+      failureThreshold: 5
+      httpGet:
+        path: /healthz
+        port: healthz
+      initialDelaySeconds: 10
+      timeoutSeconds: 3
+      periodSeconds: 2
 
-        - name: liveness-probe
-          {{- if .Values.image.csi.livenessProbe }}
-          image: {{ .Values.image.csi.livenessProbe }}
-          {{- else }}
-          image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
-          {{- end }}
-          {{- with .Values.image.pullPolicy }}
-          imagePullPolicy: {{ . }}
-          {{- end }}
-          command:
-            - /livenessprobe
-            - --csi-address=/run/springfield/csi-springfield.sock
-          volumeMounts:
-            - name: socket-dir
-              mountPath: /run/springfield
-          {{- with .Values.resources.liveness_probe }}
-          resources: {{ toYaml . | nindent 12 }}
-          {{- end }}
+    volumeMounts:
+      - mountPath: /csi
+        name: socket-dir
+      - mountPath: /var/run/dbus
+        mountPropagation: Bidirectional
+        name: dbus-socket
+
+  - name: liveness-probe
+    volumeMounts:
+    - mountPath: /csi
+      name: socket-dir
+    image: registry.k8s.io/sig-storage/livenessprobe:v2.7.0
+    args:
+    - --csi-address=/csi/csi.sock
+    - --health-port=9898
+
+
+  volumes:
+    - emptyDir: {}
+      name: socket-dir
+    - hostPath:
+        path: /host_dbus
+        type: Directory
+      name: dbus-socket

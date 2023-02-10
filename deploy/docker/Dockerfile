@@ -19,6 +19,8 @@
 
 FROM python:3.9
 
+ARG BUILD_DATE
+
 ENV DEBIAN_FRONTEND=noninteractive
 
 USER root
@@ -28,10 +30,11 @@ RUN apt-get update && \
     build-essential dbus-daemon python3-dbus libpython3-dev libdbus-1-dev \
     libdbus-glib-1-dev libgirepository1.0-dev
 
-RUN pip install dbus-python protobuf grpcio grpcio-tools
+RUN python3 -m pip install --upgrade pip
+RUN python3 -m pip install install dbus-python protobuf grpcio grpcio-tools
 
 LABEL maintainers="Todd Gill <tgill@redhat.com>" \
-    version="0.1.1" \
+    version="0.1.2" \
     release="1" \
     description="Springfield CSI Plugin" \
     summary="Springfield CSI driver" \
@@ -45,19 +48,19 @@ LABEL maintainers="Todd Gill <tgill@redhat.com>" \
 
 RUN mkdir /csi-springfield-driver
 RUN mkdir /csi-springfield-driver/sidecars
+RUN mkdir /csi-springfield-driver/socket
+
+RUN mkdir /csi
 
 WORKDIR /csi-springfield-driver
 ADD ./grpc .
-RUN chmod 755 /csi-springfield-driver/entrypoint.sh
 
-COPY ./bin/livenessprobe /csi-springfield-driver/sidecars
+RUN chmod a+x /csi-springfield-driver
+RUN chmod a+x /csi-springfield-driver/entrypoint.sh
 
-RUN mkdir /var/run/dbus/
-
-ENV DBUS_SYSTEM_BUS_ADDRESS=unix:path=/var/run/dbus/system_bus_socket
-ENV PATH="/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-
-# grpc server listtens on 50025, http server for debugging listens on 50025
-EXPOSE 5000 50024 50025 
+RUN ls /csi 
+RUN ls -l /csi-springfield-driver
+RUN ls -l /
+RUN which python3
 
 ENTRYPOINT ["/csi-springfield-driver/entrypoint.sh"]

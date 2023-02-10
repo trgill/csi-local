@@ -33,6 +33,8 @@ export EXTERNAL_SNAPSHOTTER_SRC=$SIDECAR_SRC/external-snapshotter
 
 
 
+rm -f bin/springfield-csi-driver:devel.image 
+
 mkdir -p "$SIDECAR_SRC"
 
 
@@ -64,60 +66,20 @@ if [ ! -f "$HELM" ]; then
 fi
 
 
-$KIND delete cluster --name=$CLUSTER_NAME
-
-
 docker logout ghcr.io
 
 export VERSION="0.1.0"
 
 # TODO: Add logic to only build the container when necessary.
-sudo docker build --no-cache -f deploy/docker/Dockerfile --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') -t springfield-csi-driver:devel .
+export TZ="EST"
+docker build --no-cache -f deploy/docker/Dockerfile --build-arg  BUILD_DATE="$(date)" -t springfield-csi-driver:devel .
 
 # docker image ls localhost/springfield-csi-driver
 echo $GITHUB_PAT | docker login ghcr.io -u trgill --password-stdin
 
-sudo docker tag springfield-csi-driver:devel ghcr.io/trgill/springfield-csi-driver:devel
+docker tag springfield-csi-driver:devel ghcr.io/trgill/springfield-csi-driver:devel
 docker push ghcr.io/trgill/springfield-csi-driver:devel
-docker save -o $BINDIR/springfield-csi-driver:devel.image ghcr.io/trgill/springfield-csi-driver:devel
+docker save -o $BINDIR/springfield-csi-driver:devel.image springfield-csi-driver:devel
 
 docker images ghcr.io/trgill/springfield-csi-driver
-
-
-# setup directories for building the kind cluster
-rm -rf $TMPDIR || true
-mkdir -p $TMPDIR || true
-mkdir -p $TMPDIR/scheduler || true
-mkdir -p $TMPDIR/controller || true
-mkdir -p $TMPDIR/worker || true
-
-mkdir -p $BINDIR || true
-
-# copy kind config files
-cp tests/kind/springfield-cluster.yaml $TMPDIR
-
-# create the cluster
-$KIND create cluster --name=$CLUSTER_NAME --config $TMPDIR/springfield-cluster.yaml --image kindest/node:$KUBERNETES_VERSION
-
-# load the CSI driver to the new cluster
-$KIND load image-archive --name=$CLUSTER_NAME $BINDIR/springfield-csi-driver:devel.image
-
-$KUBECTL apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.7.0/cert-manager.crds.yaml
-$KUBECTL create namespace springfield-system
-$KUBECTL label namespace springfield-system springfield.redhat.com/webhook=ignore
-$KUBECTL label namespace kube-system springfield.redhat.com/webhook=ignore
-
-$HELM install --debug --namespace=springfield-system springfield ./deploy/helm/test-yaml/ -f ./deploy/helm/test-yaml/values.yaml
-
-
-#$KUBECTL wait --for=condition=available --timeout=120s -n springfield-system deployments/springfield-controller
-#$KUBECTL wait --for=condition=ready --timeout=120s -n springfield-system certificate/springfield-mutatingwebhook
-#timeout 120 sh -c "until $KUBECTL apply -f ./tests/testpvc.yaml; do sleep 10; done"
-#$KUBECTL wait --for=condition=ready --timeout=60s -n default pod -l app=example
-
-
-if [[ -z "$GITHUB_PAT" ]]; then
-    echo "Must provide GITHUB_PAT with write access to ghcr.io/trgill/springfield-csi-driver in environment" 1>&2
-    exit 1
-fi
 

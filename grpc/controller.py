@@ -22,19 +22,30 @@ import threading
 import logging
 import argparse
 import os
-
+import sys
 import grpc
+
 
 import csi_pb2
 from csi_pb2 import ControllerServiceCapability
 from csi_pb2_grpc import ControllerServicer
 import json
-import dbus_client
+
 
 VOLUME_GROUP_NAME = "springfield"
 
-#dbus_handle = dbus_client.DbusClient()
-# dbus_handle.get_objects()
+file_handler = logging.FileHandler(filename="/tmp/csi_driver.log")
+stdout_handler = logging.StreamHandler(stream=sys.stdout)
+handlers = [file_handler, stdout_handler]
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="[%(asctime)s] {%(filename)s:%(lineno)d} %(levelname)s - %(message)s",
+    handlers=handlers,
+)
+
+logger = logging.getLogger("LOGGER_NAME")
+
 
 volume_list = list()
 vg_list = list()
@@ -75,7 +86,7 @@ def print_volume_list():
 
 
 def destroy(device):
-    """ Schedule actions as needed to ensure the pool does not exist. """
+    """Schedule actions as needed to ensure the pool does not exist."""
     if device is None:
         return
 
@@ -105,18 +116,23 @@ def get_capability(capability):
     if access_type == "mount":
         return csi_pb2.VolumeCapability(
             mount=csi_pb2.VolumeCapability.MountVolume(
-                fs_type=capability.mount.fs_type),
+                fs_type=capability.mount.fs_type
+            ),
             access_mode=csi_pb2.VolumeCapability.AccessMode(
-                mode=capability.access_mode.mode))
+                mode=capability.access_mode.mode
+            ),
+        )
 
     return csi_pb2.VolumeCapability(
         mount=csi_pb2.VolumeCapability.BlockVolume(),
         access_mode=csi_pb2.VolumeCapability.AccessMode(
-            mode=capability.access_mode.mode))
+            mode=capability.access_mode.mode
+        ),
+    )
 
 
 def get_volume_name(request):
-    return request.name[:min(len(request.name), 55)]
+    return request.name[: min(len(request.name), 55)]
 
 
 class SpringfieldControllerService(ControllerServicer):
@@ -127,9 +143,7 @@ class SpringfieldControllerService(ControllerServicer):
 
         # Validate the parameters for the request
         if request.name == None:
-            context.abort(
-                grpc.StatusCode.INVALID_ARGUMENT, "Must include volume name"
-            )
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Must include volume name")
 
         name = get_volume_name(request)
 
@@ -145,11 +159,17 @@ class SpringfieldControllerService(ControllerServicer):
 
         # If the volume already exits - just return success
         if volume_map != None:
-            if volume_map.csi_volume.capacity_bytes == request.capacity_range.limit_bytes or volume_map.csi_volume.capacity_bytes == request.capacity_range.required_bytes:
+            if (
+                volume_map.csi_volume.capacity_bytes
+                == request.capacity_range.limit_bytes
+                or volume_map.csi_volume.capacity_bytes
+                == request.capacity_range.required_bytes
+            ):
                 return csi_pb2.CreateVolumeResponse(volume=volume_map.csi_volume)
             else:
                 context.abort(
-                    grpc.StatusCode.ALREADY_EXISTS, "Volume already exists with different capacity"
+                    grpc.StatusCode.ALREADY_EXISTS,
+                    "Volume already exists with different capacity",
                 )
 
         if len(request.volume_capabilities) == 0:
@@ -164,44 +184,45 @@ class SpringfieldControllerService(ControllerServicer):
             access_type = capability.WhichOneof("access_type")
             assert access_type == "mount" or access_type == "block"
 
-            if fstype not in ['xfs', 'btrfs', 'ext4', '']:
+            if fstype not in ["xfs", "btrfs", "ext4", ""]:
                 context.abort(
                     grpc.StatusCode.INVALID_ARGUMENT,
                     "Unsupported filesystem type: {fstype}",
                 )
-            if fstype == '':
+            if fstype == "":
                 fstype = "xfs"
 
             if capability.access_mode.mode not in [
-                    csi_pb2.VolumeCapability.AccessMode.Mode.SINGLE_NODE_WRITER]:
+                csi_pb2.VolumeCapability.AccessMode.Mode.SINGLE_NODE_WRITER
+            ]:
                 context.abort(
                     grpc.StatusCode.INVALID_ARGUMENT,
                     "Unsupported access mode: {csi_pb2.VolumeCapability.AccessMode.Mode.Name(volume_capability.access_mode.mode)}",
                 )
 
         # Create the Volume using Blivet
-        lv = dbus_handle.new_lv(name=name, parents=[volume_group],
-                                size=Size(size), fmt_type=fstype)
+        lv = dbus_handle.new_lv(
+            name=name, parents=[volume_group], size=Size(size), fmt_type=fstype
+        )
 
         dbus_handle.create_device(lv)
 
         try:
             dbus_handle.do_it()
         except BaseException as error:
-            print('An exception occurred: {}'.format(error))
+            print("An exception occurred: {}".format(error))
             context.abort(
-                grpc.StatusCode.ABORTED, 'An exception occurred: {}'.format(
-                    error)
+                grpc.StatusCode.ABORTED, "An exception occurred: {}".format(error)
             )
 
         csi_volume = csi_pb2.Volume(
             volume_id=request.name,
-            capacity_bytes=size, accessible_topology=[
-                csi_pb2.Topology(
-                    segments={"hostname": os.uname().nodename})
-            ])
-        volume_map = VolumeMap(
-            request.name, name, csi_volume, lv)
+            capacity_bytes=size,
+            accessible_topology=[
+                csi_pb2.Topology(segments={"hostname": os.uname().nodename})
+            ],
+        )
+        volume_map = VolumeMap(request.name, name, csi_volume, lv)
 
         volume_list.append(volume_map)
         print_volume_list()
@@ -209,10 +230,8 @@ class SpringfieldControllerService(ControllerServicer):
 
     def DeleteVolume(self, request, context):
 
-        if request.volume_id == None or request.volume_id == '':
-            context.abort(
-                grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id"
-            )
+        if request.volume_id == None or request.volume_id == "":
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id")
 
         volume_map = volume_map = get_volume(request.volume_id)
 
@@ -223,21 +242,18 @@ class SpringfieldControllerService(ControllerServicer):
 
         # TODO: catch the errors thrown by do_it()
         try:
-            device = dbus_handle.devicetree.get_device_by_path(
-                volume_map.device.path)
+            device = dbus_handle.devicetree.get_device_by_path(volume_map.device.path)
             if device == None:
                 context.abort(
-                    grpc.StatusCode.ABORTED, 'An exception occurred: {}'.format(
-                        error)
+                    grpc.StatusCode.ABORTED, "An exception occurred: {}".format(error)
                 )
 
             dbus_handle.destroy_device(device)
             dbus_handle.do_it()
         except BaseException as error:
-            print('An exception occurred: {}'.format(error))
+            print("An exception occurred: {}".format(error))
             context.abort(
-                grpc.StatusCode.ABORTED, 'An exception occurred: {}'.format(
-                    error)
+                grpc.StatusCode.ABORTED, "An exception occurred: {}".format(error)
             )
 
         for volume_map in volume_list:
@@ -254,17 +270,14 @@ class SpringfieldControllerService(ControllerServicer):
 
         if access_type == None:
             context.abort(
-                grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_capability access_type"
+                grpc.StatusCode.INVALID_ARGUMENT,
+                "Must include volume_capability access_type",
             )
-        if request.volume_id == None or request.volume_id == '':
-            context.abort(
-                grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id"
-            )
+        if request.volume_id == None or request.volume_id == "":
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id")
 
-        if request.node_id == None or request.node_id == '':
-            context.abort(
-                grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id"
-            )
+        if request.node_id == None or request.node_id == "":
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id")
 
         volume_map = get_volume(request.volume_id)
 
@@ -274,23 +287,19 @@ class SpringfieldControllerService(ControllerServicer):
             )
 
         if request.node_id != self.nodeid:
-            context.abort(
-                grpc.StatusCode.NOT_FOUND, "Mismatched node id"
-            )
+            context.abort(grpc.StatusCode.NOT_FOUND, "Mismatched node id")
         publish_context = {
             "real_name": volume_map.real_name,
             "blivet_name": volume_map.device.name,
-            "dev_path": volume_map.device.path
+            "dev_path": volume_map.device.path,
         }
 
         return csi_pb2.ControllerPublishVolumeResponse(publish_context=publish_context)
 
     def ControllerUnpublishVolume(self, request, context):
 
-        if request.volume_id == None or request.volume_id == '':
-            context.abort(
-                grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id"
-            )
+        if request.volume_id == None or request.volume_id == "":
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id")
 
         volume_map = volume_map = get_volume(request.volume_id)
 
@@ -300,10 +309,8 @@ class SpringfieldControllerService(ControllerServicer):
 
     def ValidateVolumeCapabilities(self, request, context):
 
-        if request.volume_id == None or request.volume_id == '':
-            context.abort(
-                grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id"
-            )
+        if request.volume_id == None or request.volume_id == "":
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id")
 
         try:
             volume_capability = request.volume_capabilities[0]
@@ -323,20 +330,19 @@ class SpringfieldControllerService(ControllerServicer):
         access_type = volume_capability.WhichOneof("access_type")
 
         if access_type != "mount" and access_type != "block":
-            context.abort(
-                grpc.StatusCode.INVALID_ARGUMENT, "Invalid access_type"
-            )
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Invalid access_type")
 
         if access_type == "mount":
             fstype = volume_capability.mount.fs_type
-            if fstype not in ['xfs', 'btrfs', 'ext4', '']:
+            if fstype not in ["xfs", "btrfs", "ext4", ""]:
                 context.abort(
                     grpc.StatusCode.INVALID_ARGUMENT,
                     "Unsupported filesystem type: {fstype}",
                 )
 
         if volume_capability.access_mode.mode not in [
-                csi_pb2.VolumeCapability.AccessMode.Mode.SINGLE_NODE_WRITER]:
+            csi_pb2.VolumeCapability.AccessMode.Mode.SINGLE_NODE_WRITER
+        ]:
             context.abort(
                 grpc.StatusCode.INVALID_ARGUMENT,
                 "Unsupported access mode: {csi_pb2.VolumeCapability.AccessMode.Mode.Name(volume_capability.access_mode.mode)}",
@@ -350,10 +356,10 @@ class SpringfieldControllerService(ControllerServicer):
         confirmed = csi_pb2.ValidateVolumeCapabilitiesResponse.Confirmed(
             volume_context=request.volume_context,
             volume_capabilities=capabilities,
-            parameters=request.parameters)
+            parameters=request.parameters,
+        )
 
-        response = csi_pb2.ValidateVolumeCapabilitiesResponse(
-            confirmed=confirmed)
+        response = csi_pb2.ValidateVolumeCapabilitiesResponse(confirmed=confirmed)
 
         return response
 
@@ -384,19 +390,21 @@ class SpringfieldControllerService(ControllerServicer):
         if not request.max_entries:
             csi_list = volume_list
         elif request.starting_token:
-            csi_list = volume_list[request.starting_token:
-                                   request.starting_token + request.max_entries]
+            csi_list = volume_list[
+                request.starting_token : request.starting_token + request.max_entries
+            ]
             next_token = request.starting_token + request.max_entries + 1
         else:
-            csi_list = volume_list[:request.max_entries]
+            csi_list = volume_list[: request.max_entries]
 
         return_list = list()
 
         for volume_map in csi_list:
-            volume = csi_pb2.Volume(volume_id=volume_map.csi_volume.volume_id,
-                                    capacity_bytes=volume_map.csi_volume.capacity_bytes)
-            return_list.append(
-                csi_pb2.ListVolumesResponse.Entry(volume=volume))
+            volume = csi_pb2.Volume(
+                volume_id=volume_map.csi_volume.volume_id,
+                capacity_bytes=volume_map.csi_volume.capacity_bytes,
+            )
+            return_list.append(csi_pb2.ListVolumesResponse.Entry(volume=volume))
 
         return csi_pb2.ListVolumesResponse(entries=return_list, next_token=next_token)
 
@@ -411,61 +419,104 @@ class SpringfieldControllerService(ControllerServicer):
 
         device = dbus_handle.devicetree.get_device_by_name(VOLUME_GROUP_NAME)
 
-        return csi_pb2.GetCapacityResponse(available_capacity=int(volume_group.free_space.convert_to(B)))
+        return csi_pb2.GetCapacityResponse(
+            available_capacity=int(volume_group.free_space.convert_to(B))
+        )
 
     def ControllerGetCapabilities(self, request, context):
 
-        create_delete_volume = ControllerServiceCapability(rpc=ControllerServiceCapability.RPC(
-            type=ControllerServiceCapability.RPC.CREATE_DELETE_VOLUME))
+        create_delete_volume = ControllerServiceCapability(
+            rpc=ControllerServiceCapability.RPC(
+                type=ControllerServiceCapability.RPC.CREATE_DELETE_VOLUME
+            )
+        )
 
-        publish_unpublish_volume = ControllerServiceCapability(rpc=ControllerServiceCapability.RPC(
-            type=ControllerServiceCapability.RPC.PUBLISH_UNPUBLISH_VOLUME))
+        publish_unpublish_volume = ControllerServiceCapability(
+            rpc=ControllerServiceCapability.RPC(
+                type=ControllerServiceCapability.RPC.PUBLISH_UNPUBLISH_VOLUME
+            )
+        )
 
-        list_volumes = ControllerServiceCapability(rpc=ControllerServiceCapability.RPC(
-            type=ControllerServiceCapability.RPC.LIST_VOLUMES))
+        list_volumes = ControllerServiceCapability(
+            rpc=ControllerServiceCapability.RPC(
+                type=ControllerServiceCapability.RPC.LIST_VOLUMES
+            )
+        )
 
-        get_capacity = ControllerServiceCapability(rpc=ControllerServiceCapability.RPC(
-            type=ControllerServiceCapability.RPC.GET_CAPACITY))
+        get_capacity = ControllerServiceCapability(
+            rpc=ControllerServiceCapability.RPC(
+                type=ControllerServiceCapability.RPC.GET_CAPACITY
+            )
+        )
 
-        create_delete_snapshots = ControllerServiceCapability(rpc=ControllerServiceCapability.RPC(
-            type=ControllerServiceCapability.RPC.CREATE_DELETE_SNAPSHOT))
+        create_delete_snapshots = ControllerServiceCapability(
+            rpc=ControllerServiceCapability.RPC(
+                type=ControllerServiceCapability.RPC.CREATE_DELETE_SNAPSHOT
+            )
+        )
 
-        list_snapshots = ControllerServiceCapability(rpc=ControllerServiceCapability.RPC(
-            type=ControllerServiceCapability.RPC.LIST_SNAPSHOTS))
+        list_snapshots = ControllerServiceCapability(
+            rpc=ControllerServiceCapability.RPC(
+                type=ControllerServiceCapability.RPC.LIST_SNAPSHOTS
+            )
+        )
 
-        clone_volume = ControllerServiceCapability(rpc=ControllerServiceCapability.RPC(
-            type=ControllerServiceCapability.RPC.CLONE_VOLUME))
+        clone_volume = ControllerServiceCapability(
+            rpc=ControllerServiceCapability.RPC(
+                type=ControllerServiceCapability.RPC.CLONE_VOLUME
+            )
+        )
 
-        publish_readonly = ControllerServiceCapability(rpc=ControllerServiceCapability.RPC(
-            type=ControllerServiceCapability.RPC.PUBLISH_READONLY))
+        publish_readonly = ControllerServiceCapability(
+            rpc=ControllerServiceCapability.RPC(
+                type=ControllerServiceCapability.RPC.PUBLISH_READONLY
+            )
+        )
 
-        expand_volume = ControllerServiceCapability(rpc=ControllerServiceCapability.RPC(
-            type=ControllerServiceCapability.RPC.EXPAND_VOLUME))
+        expand_volume = ControllerServiceCapability(
+            rpc=ControllerServiceCapability.RPC(
+                type=ControllerServiceCapability.RPC.EXPAND_VOLUME
+            )
+        )
 
-        list_volumes_published_nodes = ControllerServiceCapability(rpc=ControllerServiceCapability.RPC(
-            type=ControllerServiceCapability.RPC.LIST_VOLUMES_PUBLISHED_NODES))
+        list_volumes_published_nodes = ControllerServiceCapability(
+            rpc=ControllerServiceCapability.RPC(
+                type=ControllerServiceCapability.RPC.LIST_VOLUMES_PUBLISHED_NODES
+            )
+        )
 
-        volume_condition = ControllerServiceCapability(rpc=ControllerServiceCapability.RPC(
-            type=ControllerServiceCapability.RPC.VOLUME_CONDITION))
+        volume_condition = ControllerServiceCapability(
+            rpc=ControllerServiceCapability.RPC(
+                type=ControllerServiceCapability.RPC.VOLUME_CONDITION
+            )
+        )
 
-        get_volume = ControllerServiceCapability(rpc=ControllerServiceCapability.RPC(
-            type=ControllerServiceCapability.RPC.GET_VOLUME))
+        get_volume = ControllerServiceCapability(
+            rpc=ControllerServiceCapability.RPC(
+                type=ControllerServiceCapability.RPC.GET_VOLUME
+            )
+        )
 
-        expand_volume = ControllerServiceCapability(rpc=ControllerServiceCapability.RPC(
-            type=ControllerServiceCapability.RPC.EXPAND_VOLUME))
+        expand_volume = ControllerServiceCapability(
+            rpc=ControllerServiceCapability.RPC(
+                type=ControllerServiceCapability.RPC.EXPAND_VOLUME
+            )
+        )
 
         # TODO: add capabilties as support is implemented
 
-        capabilities = [create_delete_volume, publish_unpublish_volume,
-                        list_volumes, get_capacity]
+        capabilities = [
+            create_delete_volume,
+            publish_unpublish_volume,
+            list_volumes,
+            get_capacity,
+        ]
 
         return csi_pb2.ControllerGetCapabilitiesResponse(capabilities=capabilities)
 
     def CreateSnapshot(self, request, context):
         if request.volume_id == None:
-            context.abort(
-                grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id"
-            )
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id")
 
         volume_map = get_volume(request.volume_id)
 
@@ -482,9 +533,7 @@ class SpringfieldControllerService(ControllerServicer):
 
     def DeleteSnapshot(self, request, context):
         if request.volume_id == None:
-            context.abort(
-                grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id"
-            )
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id")
 
         context.abort(
             grpc.StatusCode.UNIMPLEMENTED,
@@ -494,9 +543,7 @@ class SpringfieldControllerService(ControllerServicer):
 
     def ListSnapshots(self, request, context):
         if request.volume_id == None:
-            context.abort(
-                grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id"
-            )
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id")
 
         volume_map = get_volume(request.volume_id)
 
@@ -513,25 +560,19 @@ class SpringfieldControllerService(ControllerServicer):
 
     def ControllerExpandVolume(self, request, context):
 
-        if request.volume_id == None or request.volume_id == '':
-            context.abort(
-                grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id"
-            )
+        if request.volume_id == None or request.volume_id == "":
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id")
 
         volume_map = get_volume(request.volume_id)
 
         if volume_map == None:
-            context.abort(
-                grpc.StatusCode.NOT_FOUND, "request.volume_id does not exits"
-            )
+            context.abort(grpc.StatusCode.NOT_FOUND, "request.volume_id does not exits")
 
         return csi_pb2.ControllerExpandVolumeResponse()
 
     def ControllerGetVolume(self, request, context):
-        if request.volume_id == None or request.volume_id == '':
-            context.abort(
-                grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id"
-            )
+        if request.volume_id == None or request.volume_id == "":
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id")
 
             volume_map = get_volume(request.volume_id)
 
