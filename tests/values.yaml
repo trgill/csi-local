@@ -11,13 +11,7 @@ cert-manager:
   enabled: true
 
 storageClasses:
-  - name: springfield-provisioner
-    storageClass:
-      fsType: xfs
-      isDefaultClass: false
-      volumeBindingMode: WaitForFirstConsumer
-      allowVolumeExpansion: true
-  - name: springfield-provisioner-lvm
+  - name: springfield-csi
     storageClass:
       fsType: xfs
       isDefaultClass: false

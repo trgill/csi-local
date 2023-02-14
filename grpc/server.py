@@ -1,4 +1,4 @@
-# Copyright (C) 2022  Red Hat, Inc.
+# Copyright (C) 2023  Red Hat, Inc.
 #
 # This copyrighted material is made available to anyone wishing to use,
 # modify, copy, or redistribute it subject to the terms and conditions of
@@ -31,12 +31,10 @@ from pathlib import Path
 from identity import SpringfieldIdentityService
 from controller import SpringfieldControllerService
 from controller import disks_to_use
+from controller import logger
+from controller import VOLUME_GROUP_NAME
 import dbus_client
 
-
-from controller import logger
-
-from controller import VOLUME_GROUP_NAME
 
 from node import SpringfieldNodeService
 
@@ -69,7 +67,7 @@ def run_server(port, addr, nodeid):
 
 
 def initilize_disks(init_disks):
-
+    logger.info("initilize_disks: {}", init_disks)
     path = Path(STORAGE_DEVS_FILE)
 
     if not path.is_file():

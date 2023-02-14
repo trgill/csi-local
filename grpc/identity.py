@@ -1,4 +1,4 @@
-# Copyright (C) 2022  Red Hat, Inc.
+# Copyright (C) 2023  Red Hat, Inc.
 #
 # This copyrighted material is made available to anyone wishing to use,
 # modify, copy, or redistribute it subject to the terms and conditions of
@@ -17,7 +17,8 @@
 # Red Hat Author(s): Todd Gill <tgill@redhat.com>
 #
 
-import google as google
+from controller import logger
+
 import driver
 import grpc
 from csi_pb2 import (
@@ -33,6 +34,7 @@ from csi_pb2_grpc import IdentityServicer
 
 class SpringfieldIdentityService(IdentityServicer):
     def GetPluginInfo(self, request, context):
+        logger.info("GetPluginInfo()")
         name = driver.DRIVER_NAME
         vendor_version = driver.DRIVER_VERSION
 

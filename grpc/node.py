@@ -1,4 +1,4 @@
-# Copyright (C) 2022  Red Hat, Inc.
+# Copyright (C) 2023  Red Hat, Inc.
 #
 # This copyrighted material is made available to anyone wishing to use,
 # modify, copy, or redistribute it subject to the terms and conditions of
@@ -17,10 +17,22 @@
 # Red Hat Author(s): Todd Gill <tgill@redhat.com>
 #
 
+from controller import logger
 from google.protobuf.json_format import MessageToJson, MessageToDict
 from csi_pb2_grpc import NodeServicer
 import csi_pb2
-from csi_pb2 import NodeGetCapabilitiesResponse, NodeGetInfoResponse, NodePublishVolumeResponse, NodeGetVolumeStatsResponse, NodeExpandVolumeResponse, NodeServiceCapability, NodeUnpublishVolumeResponse, Topology, VolumeUsage, VolumeCondition
+from csi_pb2 import (
+    NodeGetCapabilitiesResponse,
+    NodeGetInfoResponse,
+    NodePublishVolumeResponse,
+    NodeGetVolumeStatsResponse,
+    NodeExpandVolumeResponse,
+    NodeServiceCapability,
+    NodeUnpublishVolumeResponse,
+    Topology,
+    VolumeUsage,
+    VolumeCondition,
+)
 
 import grpc
 
@@ -37,15 +49,12 @@ class SpringfieldNodeService(NodeServicer):
         self.nodeid = nodeid
 
     def NodePublishVolume(self, request, context):
-        if request.volume_id == None or request.volume_id == '':
-            context.abort(
-                grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id"
-            )
+        logger.info("NodePublishVolume()")
+        if request.volume_id == None or request.volume_id == "":
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id")
 
-        if request.target_path == None or request.target_path == '':
-            context.abort(
-                grpc.StatusCode.INVALID_ARGUMENT, "Must include target_path"
-            )
+        if request.target_path == None or request.target_path == "":
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Must include target_path")
 
         # if not request.volume_capability == None:
         #     context.abort(
@@ -56,27 +65,29 @@ class SpringfieldNodeService(NodeServicer):
 
         if volume_map == None:
             context.abort(
-                grpc.StatusCode.INVALID_ARGUMENT, "Volume not found",
+                grpc.StatusCode.INVALID_ARGUMENT,
+                "Volume not found",
             )
 
         volume_capability = request.volume_capability
-        print(volume_capability)
+        logger.info(volume_capability)
         fstype = volume_capability.mount.fs_type
 
         access_type = volume_capability.WhichOneof("access_type")
         assert access_type == "mount" or access_type == "block"
 
-        if fstype not in ['xfs', 'btrfs', 'ext4', '']:
+        if fstype not in ["xfs", "btrfs", "ext4", ""]:
             context.abort(
                 grpc.StatusCode.INVALID_ARGUMENT,
                 "Unsupported filesystem type: {fstype}",
             )
 
-        if fstype == '':
+        if fstype == "":
             fstype = volume_map.device.format.type
 
         if volume_capability.access_mode.mode not in [
-                csi_pb2.VolumeCapability.AccessMode.Mode.SINGLE_NODE_WRITER]:
+            csi_pb2.VolumeCapability.AccessMode.Mode.SINGLE_NODE_WRITER
+        ]:
             context.abort(
                 grpc.StatusCode.INVALID_ARGUMENT,
                 "Unsupported access mode: {csi_pb2.VolumeCapability.AccessMode.Mode.Name(volume_capability.access_mode.mode)}",
@@ -89,15 +100,12 @@ class SpringfieldNodeService(NodeServicer):
         return NodePublishVolumeResponse()
 
     def NodeUnpublishVolume(self, request, context):
-        if request.volume_id == None or request.volume_id == '':
-            context.abort(
-                grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id"
-            )
+        logger.info("NodeUnpublishVolume()")
+        if request.volume_id == None or request.volume_id == "":
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id")
 
-        if request.target_path == None or request.target_path == '':
-            context.abort(
-                grpc.StatusCode.INVALID_ARGUMENT, "Must include target_path"
-            )
+        if request.target_path == None or request.target_path == "":
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Must include target_path")
         if not os.path.exists(request.target_path):
             context.abort(
                 grpc.StatusCode.NOT_FOUND, "request.target_path does not exits"
@@ -105,11 +113,11 @@ class SpringfieldNodeService(NodeServicer):
         volume_map = controller.get_volume(request.volume_id)
 
         try:
-            volume_map.device.format.teardown(
-                mountpoint=request.target_path)
+            volume_map.device.format.teardown(mountpoint=request.target_path)
         except OSError as e:
-            self.logger.warning("Warining umount filed: %s : %s" %
-                                (request.target_path, e.strerror))
+            self.logger.warning(
+                "Warining umount filed: %s : %s" % (request.target_path, e.strerror)
+            )
         try:
             if os.path.isfile(request.target_path):
                 os.remove(request.target_path)
@@ -117,13 +125,19 @@ class SpringfieldNodeService(NodeServicer):
                 os.rmdir(request.target_path)
 
         except OSError as e:
-            self.logger.warning("Warining remove unpublish remove: %s : %s" %
-                                (request.target_path, e.strerror))
+            self.logger.warning(
+                "Warining remove unpublish remove: %s : %s"
+                % (request.target_path, e.strerror)
+            )
         return NodeUnpublishVolumeResponse()
 
     def NodeGetCapabilities(self, request, context):
-        get_volume_stats = NodeServiceCapability(rpc=NodeServiceCapability.RPC(
-            type=NodeServiceCapability.RPC.GET_VOLUME_STATS))
+        logger.info("NodeGetCapabilities()")
+        get_volume_stats = NodeServiceCapability(
+            rpc=NodeServiceCapability.RPC(
+                type=NodeServiceCapability.RPC.GET_VOLUME_STATS
+            )
+        )
         # stage_unstage = NodeServiceCapability(rpc=NodeServiceCapability.RPC(
         #     type=NodeServiceCapability.RPC.STAGE_UNSTAGE_VOLUME))
         # expand_volume = NodeServiceCapability(rpc=NodeServiceCapability.RPC(
@@ -133,30 +147,24 @@ class SpringfieldNodeService(NodeServicer):
         return NodeGetCapabilitiesResponse(capabilities=capabilities)
 
     def NodeGetInfo(self, request, context):
+        logger.info("NodeGetInfo()")
         return NodeGetInfoResponse(
             node_id=self.nodeid,
-            accessible_topology=Topology(
-                segments={"hostname": self.nodeid}
-            ),
+            accessible_topology=Topology(segments={"hostname": self.nodeid}),
         )
 
     def NodeExpandVolume(self, request, context):
-        self.logger.warning(
-            "NodeExpandVolume called, which is not implemented."
-        )
+        logger.info("NodeExpandVolume() called, which is not implemented")
 
         return NodeExpandVolumeResponse()
 
     def NodeGetVolumeStats(self, request, context):
-        if request.volume_id == None or request.volume_id == '':
-            context.abort(
-                grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id"
-            )
+        logger.info("NodeGetVolumeStats()")
+        if request.volume_id == None or request.volume_id == "":
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id")
 
-        if request.volume_path == None or request.volume_path == '':
-            context.abort(
-                grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id"
-            )
+        if request.volume_path == None or request.volume_path == "":
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id")
 
         volume_map = controller.get_volume(request.volume_id)
 
@@ -166,12 +174,9 @@ class SpringfieldNodeService(NodeServicer):
             )
 
         if volume_map.published_path != request.volume_path:
-            context.abort(
-                grpc.StatusCode.NOT_FOUND, "Invalid volume path"
-            )
+            context.abort(grpc.StatusCode.NOT_FOUND, "Invalid volume path")
         usage = []
-        usage.append(VolumeUsage(
-            available=100, total=10000, used=9900, unit=1))
+        usage.append(VolumeUsage(available=100, total=10000, used=9900, unit=1))
 
         condition = VolumeCondition(abnormal=False, message="Ok")
 

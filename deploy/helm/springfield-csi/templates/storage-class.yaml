@@ -1,0 +1,25 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: springfield-csi
+  annotations:
+  labels:
+    helm.sh/chart: springfield-0.1.1
+    app.kubernetes.io/name: springfield
+    app.kubernetes.io/instance: springfield
+    app.kubernetes.io/version: "0.1.1"
+    app.kubernetes.io/managed-by: Helm
+provisioner: springfield.csi.redhat.com
+parameters:
+  pool: springfield-pool
+  volume_group: springfield-volumegroup  
+  SpaceEfficiency: thin            
+  volume_name_prefix: springfield-prefix 
+  csi.storage.k8s.io/fstype: xfs
+  csi.storage.k8s.io/secret-name: springfield-secret
+  csi.storage.k8s.io/secret-namespace: default
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true
+mountOptions:
+  - debug
+volumeBindingMode: Immediate

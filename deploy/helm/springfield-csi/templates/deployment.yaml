@@ -48,6 +48,41 @@ spec:
     - --csi-address=/csi/csi.sock
     - --health-port=9898
 
+  # - name: csi-provisioner
+  #   image: registry.k8s.io/sig-storage/csi-provisioner:v3.2.1
+  #   args:
+  #     - "--csi-address=/csi/csi.sock"
+  #     - "--node-deployment"
+  #     - "--leader-election"
+  #     - "--http-endpoint=:8080"
+  #     - "--leader-election-namespace=springfield-system"
+  #   env:
+  #     - name: ADDRESS
+  #       value: /csi/csi.sock
+  #   imagePullPolicy: "IfNotPresent"
+  #   volumeMounts:
+  #   - mountPath: /csi
+  #     name: socket-dir
+  #   ports:
+  #     - containerPort: 9898
+  #       name: http-endpoint
+  #       protocol: TCP
+
+  - name: csi-attacher
+    volumeMounts:
+    - mountPath: /csi
+      name: socket-dir
+    image: registry.k8s.io/sig-storage/csi-attacher:v3.5.0
+    args:
+      - --v=5
+      - --csi-address=/csi/csi.sock
+    securityContext:
+      # This is necessary only for systems with SELinux, where
+      # non-privileged sidecar containers cannot access unix domain socket
+      # created by privileged CSI driver container.
+      privileged: true
+
+
 
   volumes:
     - emptyDir: {}
@@ -56,3 +91,13 @@ spec:
         path: /host_dbus
         type: Directory
       name: dbus-socket
+    - hostPath:
+        path: /var/lib/kubelet/plugins_registry
+        type: Directory
+      name: registration-dir
+    - hostPath:
+        # 'path' is where PV data is persisted on host.
+        # using /tmp is also possible while the PVs will not available after plugin container recreation or host reboot
+        path: /var/lib/csi-hostpath-data/
+        type: DirectoryOrCreate
+      name: csi-data-dir

@@ -1,16 +1,6 @@
 #!/bin/bash -x
 
-echo "Starting container csi....6"
-which python3
-ls
-ls /csi
-pwd
-
-which pip3
-
-echo "show pip3 show  grpcio grpcio-tools protobuf dbus-python"
-pip3 show  grpcio grpcio-tools protobuf dbus-python
-pip3 install  grpcio grpcio-tools protobuf dbus-python
+echo "Starting container springfield csi local...."
 
 set +e
 /usr/local/bin/python3 /csi-springfield-driver/server.py

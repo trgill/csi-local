@@ -1,4 +1,4 @@
-# Copyright (C) 2022  Red Hat, Inc.
+# Copyright (C) 2023  Red Hat, Inc.
 #
 # This copyrighted material is made available to anyone wishing to use,
 # modify, copy, or redistribute it subject to the terms and conditions of
@@ -19,7 +19,7 @@
 
 import dbus
 import os
-from server import logger
+from controller import logger
 from traceback import print_exc
 
 BUS_NAME = os.getenv("LVM_DBUS_NAME", "com.redhat.lvmdbus1")

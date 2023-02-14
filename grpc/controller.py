@@ -1,4 +1,4 @@
-# Copyright (C) 2022  Red Hat, Inc.
+# Copyright (C) 2023  Red Hat, Inc.
 #
 # This copyrighted material is made available to anyone wishing to use,
 # modify, copy, or redistribute it subject to the terms and conditions of
@@ -140,7 +140,7 @@ class SpringfieldControllerService(ControllerServicer):
         self.nodeid = nodeid
 
     def CreateVolume(self, request, context):
-
+        logger.info("CreateVolume()")
         # Validate the parameters for the request
         if request.name == None:
             context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Must include volume name")
@@ -229,7 +229,7 @@ class SpringfieldControllerService(ControllerServicer):
         return csi_pb2.CreateVolumeResponse(volume=csi_volume)
 
     def DeleteVolume(self, request, context):
-
+        logger.info("DeleteVolume()")
         if request.volume_id == None or request.volume_id == "":
             context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id")
 
@@ -265,7 +265,7 @@ class SpringfieldControllerService(ControllerServicer):
         return csi_pb2.DeleteVolumeResponse()
 
     def ControllerPublishVolume(self, request, context):
-
+        logger.info("ControllerPublishVolume()")
         access_type = request.volume_capability.WhichOneof("access_type")
 
         if access_type == None:
@@ -297,7 +297,7 @@ class SpringfieldControllerService(ControllerServicer):
         return csi_pb2.ControllerPublishVolumeResponse(publish_context=publish_context)
 
     def ControllerUnpublishVolume(self, request, context):
-
+        logger.info("ControllerUnpublishVolume()")
         if request.volume_id == None or request.volume_id == "":
             context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id")
 
@@ -308,7 +308,7 @@ class SpringfieldControllerService(ControllerServicer):
         return csi_pb2.ControllerUnpublishVolumeResponse()
 
     def ValidateVolumeCapabilities(self, request, context):
-
+        logger.info("ValidateVolumeCapabilities()")
         if request.volume_id == None or request.volume_id == "":
             context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id")
 
@@ -364,6 +364,7 @@ class SpringfieldControllerService(ControllerServicer):
         return response
 
     def ListVolumes(self, request, context):
+        logger.info("ListVolumes()")
         # blivet_handle.reset()      # detect system storage configuration
         # print(str(blivet_handle.devicetree))
 
@@ -409,7 +410,7 @@ class SpringfieldControllerService(ControllerServicer):
         return csi_pb2.ListVolumesResponse(entries=return_list, next_token=next_token)
 
     def GetCapacity(self, request, context):
-
+        logger.info("GetCapacity()")
         for capability in request.volume_capabilities:
             supported_capability = get_capability(capability)
             print(supported_capability)
@@ -424,7 +425,7 @@ class SpringfieldControllerService(ControllerServicer):
         )
 
     def ControllerGetCapabilities(self, request, context):
-
+        logger.info("ControllerGetCapabilities()")
         create_delete_volume = ControllerServiceCapability(
             rpc=ControllerServiceCapability.RPC(
                 type=ControllerServiceCapability.RPC.CREATE_DELETE_VOLUME
@@ -515,6 +516,7 @@ class SpringfieldControllerService(ControllerServicer):
         return csi_pb2.ControllerGetCapabilitiesResponse(capabilities=capabilities)
 
     def CreateSnapshot(self, request, context):
+        logger.info("CreateSnapshot()")
         if request.volume_id == None:
             context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id")
 
@@ -532,6 +534,7 @@ class SpringfieldControllerService(ControllerServicer):
         return csi_pb2.CreateSnapshotResponse()
 
     def DeleteSnapshot(self, request, context):
+        logger.info("DeleteSnapshot()")
         if request.volume_id == None:
             context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id")
 
@@ -542,6 +545,7 @@ class SpringfieldControllerService(ControllerServicer):
         return csi_pb2.DeleteSnapshotResponse()
 
     def ListSnapshots(self, request, context):
+        logger.info("ListSnapshots()")
         if request.volume_id == None:
             context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id")
 
@@ -559,7 +563,7 @@ class SpringfieldControllerService(ControllerServicer):
         return csi_pb2.CreateSnapshotResponse()
 
     def ControllerExpandVolume(self, request, context):
-
+        logger.info("ControllerExpandVolume()")
         if request.volume_id == None or request.volume_id == "":
             context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id")
 
@@ -571,6 +575,7 @@ class SpringfieldControllerService(ControllerServicer):
         return csi_pb2.ControllerExpandVolumeResponse()
 
     def ControllerGetVolume(self, request, context):
+        logger.info("ControllerGetVolume()")
         if request.volume_id == None or request.volume_id == "":
             context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id")
 
