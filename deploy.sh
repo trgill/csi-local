@@ -14,13 +14,12 @@ export HELM=bin/helm
 export BINDIR=./bin
 export CLUSTER_NAME=springfield-test
 
-export VERSION="0.1.1"
+export VERSION="0.1.2"
 
 $KUBECTL apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.7.0/cert-manager.crds.yaml
-kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-provisioner/v1.5.0/deploy/kubernetes/rbac.yaml
 $KUBECTL create namespace springfield-system
 $KUBECTL label namespace springfield-system springfield.redhat.com/webhook=ignore
-$KUBECTL label namespace kube-system springfield.redhat.com/webhook=ignore
+
 
 $HELM install --debug --namespace=springfield-system springfield ./deploy/helm/springfield-csi/ -f ./deploy/helm/springfield-csi/values.yaml
 

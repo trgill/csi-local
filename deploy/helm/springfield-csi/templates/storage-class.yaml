@@ -4,10 +4,10 @@ metadata:
   name: springfield-csi
   annotations:
   labels:
-    helm.sh/chart: springfield-0.1.1
+    helm.sh/chart: springfield-0.1.2
     app.kubernetes.io/name: springfield
     app.kubernetes.io/instance: springfield
-    app.kubernetes.io/version: "0.1.1"
+    app.kubernetes.io/version: "0.1.2"
     app.kubernetes.io/managed-by: Helm
 provisioner: springfield.csi.redhat.com
 parameters:
@@ -17,7 +17,7 @@ parameters:
   volume_name_prefix: springfield-prefix 
   csi.storage.k8s.io/fstype: xfs
   csi.storage.k8s.io/secret-name: springfield-secret
-  csi.storage.k8s.io/secret-namespace: default
+  csi.storage.k8s.io/secret-namespace: springfield-system
 volumeBindingMode: WaitForFirstConsumer
 allowVolumeExpansion: true
 mountOptions:
