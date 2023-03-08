@@ -20,6 +20,10 @@ $KUBECTL apply -f https://github.com/cert-manager/cert-manager/releases/download
 $KUBECTL create namespace springfield-system
 $KUBECTL label namespace springfield-system springfield.redhat.com/webhook=ignore
 
+$KUBECTL apply -f tests/test_secret.yaml
+
+$KUBECTL  get secret springfield-secret --namespace=springfield-system
+
 
 $HELM install --debug --namespace=springfield-system springfield ./deploy/helm/springfield-csi/ -f ./deploy/helm/springfield-csi/values.yaml
 

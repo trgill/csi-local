@@ -47,8 +47,6 @@ LABEL maintainers="Todd Gill <tgill@redhat.com>" \
     org.opencontainers.image.description="Springfield prototype CSI driver"
 
 RUN mkdir /csi-springfield-driver
-RUN mkdir /csi-springfield-driver/sidecars
-RUN mkdir /csi-springfield-driver/socket
 
 RUN mkdir /csi
 

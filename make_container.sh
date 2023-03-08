@@ -17,22 +17,6 @@ export HELM=bin/helm
 export CURL="curl -sSLf"
 export LINVENESS_PROBE=bin/liveness
 
-# CSI sidecar versions
-export EXTERNAL_PROVISIONER_VERSION=3.2.1
-export EXTERNAL_RESIZER_VERSION=1.5.0
-export NODE_DRIVER_REGISTRAR_VERSION=2.5.1
-export LIVENESSPROBE_VERSION=2.7.0
-export EXTERNAL_SNAPSHOTTER_VERSION=6.0.1
-
-export SIDECAR_SRC=sidecars
-export LIVENESSPROBE_SRC=$SIDECAR_SRC/livenessprobe
-export EXTERNAL_PROVISIONER_SRC=$SIDECAR_SRC/csi-provisioner
-export NODE_DRIVER_REGISTRAR_SRC=$SIDECAR_SRC/node-driver-registrar
-export EXTERNAL_RESIZER_SRC=$SIDECAR_SRC/external-resizer
-export EXTERNAL_SNAPSHOTTER_SRC=$SIDECAR_SRC/external-snapshotter
-
-
-
 rm -f bin/springfield-csi-driver:devel.image 
 
 mkdir -p "$SIDECAR_SRC"

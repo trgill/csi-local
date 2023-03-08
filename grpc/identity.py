@@ -41,7 +41,7 @@ class SpringfieldIdentityService(IdentityServicer):
         return GetPluginInfoResponse(name=name, vendor_version=vendor_version)
 
     def GetPluginCapabilities(self, request, context):
-
+        logger.info("GetPluginCapabilities()")
         control_service = PluginCapability(
             service=PluginCapability.Service(
                 type=PluginCapability.Service.CONTROLLER_SERVICE
@@ -65,5 +65,6 @@ class SpringfieldIdentityService(IdentityServicer):
         return GetPluginCapabilitiesResponse(capabilities=capabilities)
 
     def Probe(self, request, context):
+        logger.info("Probe()")
         context.set_code(grpc.StatusCode.OK)
         return ProbeResponse()

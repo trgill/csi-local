@@ -138,12 +138,16 @@ class SpringfieldNodeService(NodeServicer):
                 type=NodeServiceCapability.RPC.GET_VOLUME_STATS
             )
         )
-        # stage_unstage = NodeServiceCapability(rpc=NodeServiceCapability.RPC(
-        #     type=NodeServiceCapability.RPC.STAGE_UNSTAGE_VOLUME))
-        # expand_volume = NodeServiceCapability(rpc=NodeServiceCapability.RPC(
-        #     type=NodeServiceCapability.RPC.EXPAND_VOLUME))
+        stage_unstage = NodeServiceCapability(
+            rpc=NodeServiceCapability.RPC(
+                type=NodeServiceCapability.RPC.STAGE_UNSTAGE_VOLUME
+            )
+        )
+        expand_volume = NodeServiceCapability(
+            rpc=NodeServiceCapability.RPC(type=NodeServiceCapability.RPC.EXPAND_VOLUME)
+        )
 
-        capabilities = [get_volume_stats]
+        capabilities = [get_volume_stats, stage_unstage, expand_volume]
         return NodeGetCapabilitiesResponse(capabilities=capabilities)
 
     def NodeGetInfo(self, request, context):

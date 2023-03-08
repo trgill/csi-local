@@ -30,6 +30,7 @@ import csi_pb2
 from csi_pb2 import ControllerServiceCapability
 from csi_pb2_grpc import ControllerServicer
 import json
+import stratis
 
 
 VOLUME_GROUP_NAME = "springfield"
@@ -81,7 +82,6 @@ def print_volume_list():
         print("Volume ID : ", volume_map.csi_volume.volume_id)
         print("\tCapacity : ", volume_map.csi_volume.capacity_bytes)
     print("Device Tree:")
-    print(str(dbus_handle.devicetree))
     print("\n")
 
 
@@ -140,10 +140,20 @@ class SpringfieldControllerService(ControllerServicer):
         self.nodeid = nodeid
 
     def CreateVolume(self, request, context):
+
         logger.info("CreateVolume()")
+        sys.stdout.flush()
+        sys.stderr.flush()
+
         # Validate the parameters for the request
         if request.name == None:
             context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Must include volume name")
+
+        request_name = request.name
+
+        logger.info("CreateVolume name =", request_name)
+        sys.stdout.flush()
+        sys.stderr.flush()
 
         name = get_volume_name(request)
 
@@ -200,20 +210,7 @@ class SpringfieldControllerService(ControllerServicer):
                     "Unsupported access mode: {csi_pb2.VolumeCapability.AccessMode.Mode.Name(volume_capability.access_mode.mode)}",
                 )
 
-        # Create the Volume using Blivet
-        lv = dbus_handle.new_lv(
-            name=name, parents=[volume_group], size=Size(size), fmt_type=fstype
-        )
-
-        dbus_handle.create_device(lv)
-
-        try:
-            dbus_handle.do_it()
-        except BaseException as error:
-            print("An exception occurred: {}".format(error))
-            context.abort(
-                grpc.StatusCode.ABORTED, "An exception occurred: {}".format(error)
-            )
+        if 
 
         csi_volume = csi_pb2.Volume(
             volume_id=request.name,
@@ -474,12 +471,6 @@ class SpringfieldControllerService(ControllerServicer):
             )
         )
 
-        expand_volume = ControllerServiceCapability(
-            rpc=ControllerServiceCapability.RPC(
-                type=ControllerServiceCapability.RPC.EXPAND_VOLUME
-            )
-        )
-
         list_volumes_published_nodes = ControllerServiceCapability(
             rpc=ControllerServiceCapability.RPC(
                 type=ControllerServiceCapability.RPC.LIST_VOLUMES_PUBLISHED_NODES
@@ -511,6 +502,14 @@ class SpringfieldControllerService(ControllerServicer):
             publish_unpublish_volume,
             list_volumes,
             get_capacity,
+            create_delete_snapshots,
+            list_snapshots,
+            clone_volume,
+            publish_readonly,
+            expand_volume,
+            list_volumes_published_nodes,
+            volume_condition,
+            get_volume,
         ]
 
         return csi_pb2.ControllerGetCapabilitiesResponse(capabilities=capabilities)
