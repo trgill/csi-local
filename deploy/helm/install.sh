@@ -8,6 +8,6 @@
 # follow: https://github.com/trgill/csi-local/issues/5 for details
 
 # kind load docker-image ghcr.io/trgill/springfield-csi-driver:latest
-CLUSTER_NAME := springfield-test
+CLUSTER_NAME := springfield-cluster
 
-kind load image-archive --name=$(CLUSTER_NAME) build/topolvm.img;
+kind load image-archive --name=$(CLUSTER_NAME) build/springfield.img;

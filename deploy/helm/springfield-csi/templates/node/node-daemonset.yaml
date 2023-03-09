@@ -1,12 +1,24 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: springfield-node-sa
+  namespace: springfield-system
+  labels:
+    helm.sh/chart: springfield-csi
+    app.kubernetes.io/name: springfield-csi
+    app.kubernetes.io/instance: springfield-csi
+    app.kubernetes.io/version: "0.0.1"
+    app.kubernetes.io/managed-by: Helm
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: springfield-system:node
   labels:
-    helm.sh/chart: topolvm-9.1.0
-    app.kubernetes.io/name: topolvm
-    app.kubernetes.io/instance: topolvm
-    app.kubernetes.io/version: "0.15.2"
+    helm.sh/chart: springfield-csi
+    app.kubernetes.io/name: springfield-csi
+    app.kubernetes.io/instance: springfield-csi
+    app.kubernetes.io/version: "0.0.1"
     app.kubernetes.io/managed-by: Helm
 subjects:
   - kind: ServiceAccount
@@ -16,11 +28,12 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: springfield-system:node
+
 ---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: springfield-csi-node
+  name: springfield-node
   namespace: springfield-system
   labels:
     helm.sh/chart: springfield-csi
@@ -48,10 +61,7 @@ spec:
         - name: springfield-csi-node
           image: ghcr.io/trgill/springfield-csi-driver:devel
           args:
-            - "--drivername=springfield-csi"
-            - "--v=6"
-            - "--endpoint=$(CSI_ENDPOINT)"
-            - "--nodeid=$(KUBE_NODE_NAME)"
+            - "--nodeonly"
           env:
             - name: CSI_ENDPOINT
               value: unix:///csi/csi.sock
@@ -63,7 +73,7 @@ spec:
           securityContext:
             privileged: true
           ports:
-          - containerPort: 9898
+          - containerPort: 9808
             name: healthz
             protocol: TCP
           livenessProbe:
@@ -75,38 +85,44 @@ spec:
             timeoutSeconds: 3
             periodSeconds: 2
           volumeMounts:
-            - mountPath: /csi
-              name: socket-dir
-            - mountPath: /var/lib/kubelet/pods
-              mountPropagation: Bidirectional
-              name: mountpoint-dir
-            - mountPath: /csi-data-dir
-              name: csi-data-dir
+            - name: node-socket-dir
+              mountPath: /csi
+            - name: registration-dir
+              mountPath: /registration
             - mountPath: /var/run/dbus
-              mountPropagation: Bidirectional
               name: dbus-socket
+            - name: stratis-dir
+              mountPath: /stratis
+            - name: pod-volumes-dir
+              mountPath: /var/lib/kubelet/pods
+              mountPropagation: "Bidirectional"
+            - name: csi-plugin-dir
+              mountPath: /var/lib/kubelet/plugins/kubernetes.io/csi
+              mountPropagation: "Bidirectional"
 
         - name: liveness-probe
-          volumeMounts:
-          - mountPath: /csi
-            name: socket-dir
           image: registry.k8s.io/sig-storage/livenessprobe:v2.7.0
           args:
           - --csi-address=/csi/csi.sock
-          - --health-port=9898
+          - --health-port=9808
+          volumeMounts:
+            - name: node-socket-dir
+              mountPath: /csi
+            - name: registration-dir
+              mountPath: /registration
 
         - name: csi-driver-registrar
-          image: k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.5.1
+          image: k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.6.3
           args:
             - "--csi-address=/csi/csi.sock"
             - "--kubelet-registration-path=/var/lib/kubelet/plugins/springfield.csi.redhat.com/csi.sock"
             - "--health-port=9809"
           volumeMounts:
-            - name: plugin-dir
+            - name: node-socket-dir
               mountPath: /csi
             - name: registration-dir
               mountPath: /registration
-
+            
           ports:
             - containerPort: 9809
               name: healthz
@@ -116,30 +132,31 @@ spec:
               port: healthz
             initialDelaySeconds: 5
             timeoutSeconds: 5
+
+      hostNetwork: true
+
       volumes:
-        - hostPath:
-            path: /var/lib/kubelet/plugins/csi-springfield
-            type: DirectoryOrCreate
-          name: socket-dir
-        - hostPath:
-            path: /var/lib/kubelet/pods
-            type: DirectoryOrCreate
-          name: mountpoint-dir
         - name: registration-dir
           hostPath:
             path: /var/lib/kubelet/plugins_registry/
             type: Directory
-        - name: plugin-dir
+        - name: node-socket-dir
           hostPath:
             path: /var/lib/kubelet/plugins/springfield.csi.redhat.com/
             type: DirectoryOrCreate
-        - hostPath:
-            # 'path' is where PV data is persisted on host.
-            # using /tmp is also possible while the PVs will not available after plugin container recreation or host reboot
-            path: /var/lib/csi-springfield-data/
-            type: DirectoryOrCreate
-          name: csi-data-dir
-        - hostPath:
+        - name: dbus-socket
+          hostPath:
             path: /host_dbus
             type: Directory
-          name: dbus-socket
+        - name: stratis-dir
+          hostPath:
+            path: /stratis
+            type: Directory
+        - name: pod-volumes-dir
+          hostPath:
+            path: /var/lib/kubelet/pods/
+            type: DirectoryOrCreate
+        - name: csi-plugin-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins/kubernetes.io/csi
+            type: DirectoryOrCreate

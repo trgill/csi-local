@@ -65,6 +65,5 @@ class SpringfieldIdentityService(IdentityServicer):
         return GetPluginCapabilitiesResponse(capabilities=capabilities)
 
     def Probe(self, request, context):
-        logger.info("Probe()")
         context.set_code(grpc.StatusCode.OK)
         return ProbeResponse()

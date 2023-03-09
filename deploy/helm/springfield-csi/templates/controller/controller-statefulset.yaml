@@ -187,10 +187,7 @@ spec:
         - name: springfield-csi-driver
           image: ghcr.io/trgill/springfield-csi-driver:devel
           args:
-            - "--drivername=springfield-csi"
-            - "--v=6"
-            - "--endpoint=$(CSI_ENDPOINT)"
-            - "--nodeid=$(KUBE_NODE_NAME)"
+            - --blockdevs={{.Values.blockdevs}}
           env:
             - name: CSI_ENDPOINT
               value: unix:///csi/csi.sock
@@ -214,16 +211,11 @@ spec:
             timeoutSeconds: 3
             periodSeconds: 2
           volumeMounts:
-            - mountPath: /csi
-              name: socket-dir
-            - mountPath: /var/lib/kubelet/pods
+            - name: socket-dir
+              mountPath: /csi
+            - name: dbus-socket
+              mountPath: /var/run/dbus
               mountPropagation: Bidirectional
-              name: mountpoint-dir
-            - mountPath: /csi-data-dir
-              name: csi-data-dir
-            - mountPath: /var/run/dbus
-              mountPropagation: Bidirectional
-              name: dbus-socket
 
         - name: csi-external-health-monitor-controller
           image: registry.k8s.io/sig-storage/csi-external-health-monitor-controller:v0.6.0
@@ -249,14 +241,11 @@ spec:
           - --health-port=9898
 
         - name: csi-attacher
-          image: registry.k8s.io/sig-storage/csi-attacher:v3.5.0
+          image: registry.k8s.io/sig-storage/csi-attacher:v4.2.0
           args:
             - --v=6
             - --csi-address=/csi/csi.sock
           securityContext:
-            # This is necessary only for systems with SELinux, where
-            # non-privileged sidecar containers cannot access unix domain socket
-            # created by privileged CSI driver container.
             privileged: true
           volumeMounts:
           - mountPath: /csi
@@ -279,29 +268,27 @@ spec:
               name: socket-dir
 
       volumes:
-        - hostPath:
+        - name: socket-dir
+          hostPath:
             path: /var/lib/kubelet/plugins/csi-springfield
             type: DirectoryOrCreate
-          name: socket-dir
-        - hostPath:
-            path: /var/lib/kubelet/pods
-            type: DirectoryOrCreate
-          name: mountpoint-dir
         - name: registration-dir
           hostPath:
             path: /var/lib/kubelet/plugins_registry/
             type: Directory
-        - name: plugin-dir
+        - name: stratis-dir
           hostPath:
-            path: /var/lib/kubelet/plugins/springfield.csi.redhat.com/
-            type: DirectoryOrCreate
-        - hostPath:
-            # 'path' is where PV data is persisted on host.
-            # using /tmp is also possible while the PVs will not available after plugin container recreation or host reboot
-            path: /var/lib/csi-springfield-data/
-            type: DirectoryOrCreate
-          name: csi-data-dir
-        - hostPath:
+            path: /stratis
+            type: Directory
+        - name: dbus-socket
+          hostPath:
             path: /host_dbus
             type: Directory
-          name: dbus-socket
+        - name: pod-volumes-dir
+          hostPath:
+            path: /var/lib/kubelet/pods/
+            type: DirectoryOrCreate
+        - name: csi-plugin-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins/kubernetes.io/csi
+            type: DirectoryOrCreate

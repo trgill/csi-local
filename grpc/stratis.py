@@ -18,9 +18,9 @@
 
 import os
 import dbus
-import json
-import argparse
+import logging
 
+STRATIS_PATH="/stratis/stratis/"
 OBJECT_MANAGER = "org.freedesktop.DBus.ObjectManager"
 BUS = dbus.SystemBus()
 BUS_NAME = "org.storage.stratis3"
@@ -37,6 +37,7 @@ BLKDEV_IFACE = f"{BUS_NAME}.blockdev.{REVISION}"
 
 CONTAINER_POOL = os.getenv("CONTAINER_POOL", "springfield-csi-pool")
 
+logger = logging.getLogger("LOGGER_NAME")
 
 def get_managed_objects():
     """
@@ -61,7 +62,6 @@ def pool_object_path(pool_name):
 
     for obj_path, obj_data in get_managed_objects().items():
         if POOL_IFACE in obj_data and str(obj_data[POOL_IFACE]["Name"]) == pool_name:
-            print(obj_data)
             return obj_path
 
     return None
@@ -88,19 +88,50 @@ def fs_create(pool_path, fs_name, *, fs_size=None):
     return iface.CreateFilesystems([file_spec], timeout=TIMEOUT)
 
 
-def get_empty_devs_list():
-    list = []
-    f = open(JSON_DEV_FILE)
+def fs_destroy(pool_name, fs_name):
+    """
+    Destroy a filesystem
+    :param str pool_name: The name of the pool which contains the filesystem
+    :param str fs_name: The name of the filesystem to destroy
+    :return: The return values of the DestroyFilesystems call, or None
+    :rtype: The D-Bus types (bas), q, and s, or None
+    """
+    objects = get_managed_objects().items()
 
-    devices = json.load(f)
+    pool_objects = {
+        path: obj_data[POOL_IFACE]
+        for path, obj_data in objects
+        if POOL_IFACE in obj_data
+    }
+    fs_objects = {
+        path: obj_data[FS_IFACE]
+        for path, obj_data in objects
+        if FS_IFACE in obj_data
+    }
 
-    for i in devices["use_for_stratis"]:
-        print(i["device"])
-        list.append(i["device"])
+    pool_paths = [
+        path
+        for path, pool_obj in pool_objects.items()
+        if pool_obj["Name"] == pool_name
+    ]
+    if len(pool_paths) != 1:
+        return None
 
-    f.close()
+    pool_path = pool_paths[0]
 
-    return list
+    fs_paths = [
+        path
+        for path, fs_obj in fs_objects.items()
+        if fs_obj["Name"] == fs_name and fs_obj["Pool"] == pool_path
+    ]
+    if len(fs_paths) != 1:
+        return None
+
+    iface = dbus.Interface(
+        BUS.get_object(BUS_NAME, pool_path),
+        POOL_IFACE,
+    )
+    return iface.DestroyFilesystems(fs_paths, timeout=TIMEOUT)
 
 
 def pool_create(
@@ -149,7 +180,18 @@ def fs_create(pool_path, fs_name, *, fs_size=None):
         (fs_name, (False, "")) if fs_size is None else (fs_name, (True, fs_size))
     )
 
-    return iface.CreateFilesystems([file_spec], timeout=TIMEOUT)
+    (
+        (
+            filesystems_created,
+            (array_of_tuples_with_obj_paths_and_names),
+        ),
+        return_code,
+        msg,
+    ) =  iface.CreateFilesystems([file_spec], timeout=TIMEOUT)
+
+    logger.info(array_of_tuples_with_obj_paths_and_names)
+
+    return array_of_tuples_with_obj_paths_and_names[0][0], array_of_tuples_with_obj_paths_and_names[0][1]
 
 
 def fs_list():
@@ -160,7 +202,8 @@ def fs_list():
     """
     objects = get_managed_objects().items()
 
-    fs_objects = [obj_data[FS_IFACE] for _, obj_data in objects if FS_IFACE in obj_data]
+    fs_objects = [obj_data[FS_IFACE]
+                  for _, obj_data in objects if FS_IFACE in obj_data]
 
     pool_path_to_name = {
         obj: obj_data[POOL_IFACE]["Name"]

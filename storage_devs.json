@@ -1,9 +1,0 @@
-{
-    "use_for_csi_storage": [
-        "/dev/sda",
-        "/dev/sdb",
-        "/dev/sdc",
-        "/dev/sdd",
-        "/dev/sde"
-    ]
-}

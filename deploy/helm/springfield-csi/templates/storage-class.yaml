@@ -4,14 +4,14 @@ metadata:
   name: springfield-csi
   annotations:
   labels:
-    helm.sh/chart: springfield-0.1.2
+    helm.sh/chart: springfield-0.1
     app.kubernetes.io/name: springfield
     app.kubernetes.io/instance: springfield
-    app.kubernetes.io/version: "0.1.2"
+    app.kubernetes.io/version: "0.1"
     app.kubernetes.io/managed-by: Helm
 provisioner: springfield.csi.redhat.com
+parameters:
+  csi.storage.k8s.io/fstype: xfs
 volumeBindingMode: WaitForFirstConsumer
 allowVolumeExpansion: true
-mountOptions:
-  - debug
 volumeBindingMode: Immediate

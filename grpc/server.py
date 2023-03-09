@@ -30,19 +30,46 @@ from pathlib import Path
 
 from identity import SpringfieldIdentityService
 from controller import SpringfieldControllerService
-from controller import disks_to_use
 from controller import logger
-from controller import VOLUME_GROUP_NAME
-import dbus_client
-
+from stratis import CONTAINER_POOL, pool_create, pool_object_path
 
 from node import SpringfieldNodeService
 
 STORAGE_DEVS_FILE = "storage_devs.json"
 
+def initilize_disks(storage_devs):
+
+    # path = Path(STORAGE_DEVS_FILE)
+
+    # if not path.is_file():
+    #     logger.error('%s file not found in %s',
+    #                     STORAGE_DEVS_FILE, Path.cwd())
+        
+    #     # look in the grpc subdirectory
+    #     path = Path("grpc/" + STORAGE_DEVS_FILE)
+    #     if not path.is_file():
+    #         logger.error('%s file not found in %s',
+    #                       STORAGE_DEVS_FILE, Path.cwd())
+    #         exit()
+
+    # try:
+    #     with open(path) as json_file:
+    #         storage_devs = json.load(json_file)['use_for_csi_storage']
+    # except ValueError:
+    #     logger.error('Failed to parse {}', STORAGE_DEVS_FILE)
+    #     exit()
+
+    pool_path = pool_object_path(CONTAINER_POOL)
+
+    if pool_path is None:
+        (result, rc, msg) = pool_create(CONTAINER_POOL, storage_devs)
+        if (rc != 0): 
+            logger.error("Failed to initialize stratis pool: " + CONTAINER_POOL + " - " + msg)
+            exit()
+        
+
 
 def run_server(port, addr, nodeid):
-
     logger.info("Starting grpc server:")
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
@@ -54,46 +81,14 @@ def run_server(port, addr, nodeid):
         SpringfieldNodeService(nodeid=nodeid), server
     )
 
-    dbus_handle = dbus_client.DbusClient()
-    dbus_handle.get_objects()
-    logger.info("server.add_insecure_port()")
     server.add_insecure_port("unix://csi/csi.sock")
+    # server.add_insecure_port("[::]:9080")
     server.start()
     server.wait_for_termination()
 
-
-# Note: the disks need to be initialized and the volume group created before the
-# grpc server is started.
-
-
-def initilize_disks(init_disks):
-    logger.info("initilize_disks: {}", init_disks)
-    path = Path(STORAGE_DEVS_FILE)
-
-    if not path.is_file():
-        logger.warning("%s file not found in %s", STORAGE_DEVS_FILE, Path.cwd())
-        # look in the grpc subdirectory
-        path = Path("grpc/" + STORAGE_DEVS_FILE)
-        if not path.is_file():
-            logger.error("%s file not found in %s", STORAGE_DEVS_FILE, Path.cwd())
-            exit()
-
-    try:
-        with open(path) as json_file:
-            storage_devs = json.load(json_file)["use_for_csi_storage"]
-    except ValueError:
-        logger.error("Failed to parse {}", STORAGE_DEVS_FILE)
-        exit()
-
-    pvs = list()
-
-    for dev_path in storage_devs:
-        disks_to_use.append(dev_path)
-
-    if len(disks_to_use) == 0:
-        logger.error("No useable disks")
-        exit()
-
+class split_args(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        setattr(namespace, self.dest, values.split(' '))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -102,7 +97,7 @@ if __name__ == "__main__":
         dest="nodeid",
         type=str,
         help="unique node identifier",
-        default=socket.getfqdn(),
+        default=socket.gethostname(),
     )
     parser.add_argument(
         "--addr", dest="addr", type=str, help="ip address to listen", default="[::]:"
@@ -111,19 +106,29 @@ if __name__ == "__main__":
         "--port", dest="port", type=int, help="port to listen", default=50024
     )
     parser.add_argument(
-        "--init_disks",
-        dest="init_disks",
-        type=bool,
-        help="initialize storage",
-        default=False,
+        "--nodeonly", dest="nodeonly", action=argparse.BooleanOptionalAction
     )
-
+    parser.add_argument(
+        "--blockdevs", dest="blockdevs", type=str, default=""
+    )
     args = parser.parse_args()
 
     port = args.port
     addr = args.addr
     nodeid = args.nodeid
-    init_disks = args.init_disks
 
-    # initilize_disks(init_disks)
+    # Accept a blockdev list in either "/dev/sda,/dev/sdb" or [/dev/sda /dev/sdb] format.
+    # Helm passes lists via set values in the [/dev/sda /dev/sdb] format.
+    blockdevs=args.blockdevs.replace('\'', '').replace(' ', ',').replace('[','').replace(']', '')
+
+    logger.info(sys.argv)
+
+    if not args.nodeonly:
+        blockdevs_list = blockdevs.split(',')
+        logger.info("Running in controller mode : " + blockdevs)
+        initilize_disks(blockdevs_list)
+    else:
+        logger.info("Running in node mode")
+
+    logger.info("node id = %s", nodeid)
     run_server(port, addr, nodeid)

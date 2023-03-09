@@ -12,25 +12,34 @@ export KIND=bin/kind
 export KUBECTL=bin/kubectl
 export HELM=bin/helm
 export BINDIR=./bin
-export CLUSTER_NAME=springfield-test
+export CLUSTER_NAME=springfield-cluster
 
 export VERSION="0.1.2"
 
+
+if pgrep -x "stratisd" > /dev/null
+then
+   echo "stratisd running"
+else
+   echo "stratisd is required for proper operation of springfield CSI driver"
+   exit 1
+fi
+
 $KUBECTL apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.7.0/cert-manager.crds.yaml
 $KUBECTL create namespace springfield-system
-$KUBECTL label namespace springfield-system springfield.redhat.com/webhook=ignore
 
-$KUBECTL apply -f tests/test_secret.yaml
+$HELM dependency build ./deploy/helm/springfield-csi/
+$HELM install --debug --namespace=springfield-system springfield ./deploy/helm/springfield-csi/ --set blockdevs="{/dev/XXX,/dev/XXX,/dev/XXX}"
 
-$KUBECTL  get secret springfield-secret --namespace=springfield-system
+echo "Waiting for CSI driver to deploy...."
+$KUBECTL wait -l statefulset.kubernetes.io/pod-name=springfield-csi-0 -n springfield-system --for=condition=ready pod --timeout=-100s
 
-
-$HELM install --debug --namespace=springfield-system springfield ./deploy/helm/springfield-csi/ -f ./deploy/helm/springfield-csi/values.yaml
-
-#$KUBECTL wait --for=condition=available --timeout=120s -n springfield-system ./deploy/helm/springfield-csi 
-#$KUBECTL wait --for=condition=ready --timeout=120s -n springfield-system certificate/springfield-mutatingwebhook
+if [ $? -eq 0 ]
+then
+  echo "CSI driver ready."
+else
+  echo "Driver failed to deploy." >&2
+  exit 1
+fi
 
 $KUBECTL get storageclass 
-
-#timeout 120 sh -c "until $KUBECTL apply -f ./tests/testpvc.yaml; do sleep 10; done"
-#$KUBECTL wait --for=condition=ready --timeout=60s -n default pod -l app=example

@@ -1,11 +1,11 @@
 apiVersion: storage.k8s.io/v1
 kind: CSIDriver
 metadata:
-  name: springfield-csi
+  name: springfield.csi.redhat.com
 spec:
-  storageCapacity: true
-  attachRequired: false
+  attachRequired: true
   podInfoOnMount: true
+  fsGroupPolicy: File 
   volumeLifecycleModes:
     - Persistent
     - Ephemeral

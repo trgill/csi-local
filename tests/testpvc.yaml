@@ -1,7 +1,7 @@
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
-  name: springfield-pvc
+  name: springfield-pvc-claim
 spec:
   accessModes:
   - ReadWriteOnce
@@ -13,20 +13,21 @@ spec:
 apiVersion: v1
 kind: Pod
 metadata:
-  name: my-pod
+  name: springfield-pvc-test
   namespace: default
   labels:
-    app.kubernetes.io/name: my-pod
+    app.kubernetes.io/name: springfield-test-pod
     app: example
 spec:
   containers:
-  - name: ubuntu
-    image: ubuntu:20.04
-    command: ["/usr/local/bin/pause"]
+  - name: nginx
+    image: nginx
+    ports:
+      - containerPort: 80
     volumeMounts:
-    - mountPath: /test1
-      name: my-volume
+    - mountPath: /springfield-volume
+      name: springfield-volume
   volumes:
-  - name: my-volume
+  - name: springfield-volume
     persistentVolumeClaim:
-      claimName: springfield-pvc
+      claimName: springfield-pvc-claim

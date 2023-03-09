@@ -20,6 +20,7 @@
 from controller import logger
 from google.protobuf.json_format import MessageToJson, MessageToDict
 from csi_pb2_grpc import NodeServicer
+
 import csi_pb2
 from csi_pb2 import (
     NodeGetCapabilitiesResponse,
@@ -28,6 +29,8 @@ from csi_pb2 import (
     NodeGetVolumeStatsResponse,
     NodeExpandVolumeResponse,
     NodeServiceCapability,
+    NodeStageVolumeResponse,
+    NodeUnstageVolumeResponse,
     NodeUnpublishVolumeResponse,
     Topology,
     VolumeUsage,
@@ -37,9 +40,11 @@ from csi_pb2 import (
 import grpc
 
 import controller
+from stratis import STRATIS_PATH, CONTAINER_POOL
 
 import os
-import array
+from sh import mount, umount
+
 
 # CSI Spec https://github.com/container-storage-interface/spec/blob/master/spec.md
 
@@ -48,6 +53,43 @@ class SpringfieldNodeService(NodeServicer):
     def __init__(self, nodeid):
         self.nodeid = nodeid
 
+    def NodeStageVolume(self, request, context):
+        logger.info("NodeStageVolume()")
+        
+        staging_target_path = request.staging_target_path
+        exists = os.path.exists(staging_target_path)
+        if not exists:
+            os.makedirs(staging_target_path)
+
+        stratis_dev_path = STRATIS_PATH + "/" + CONTAINER_POOL + "/"
+
+        logger.info("mount :" + stratis_dev_path + request.volume_id + " on: " + staging_target_path + " with : -txfs")
+        try:
+            mount(stratis_dev_path + request.volume_id, staging_target_path, "-txfs")
+        except OSError as e:
+          logger.warning(
+                "Warining mount failed: %s : %s" % (staging_target_path, e.strerror)
+            )
+
+        return NodeStageVolumeResponse()
+    
+    def NodeUnstageVolume(self, request, context):
+        logger.info("NodeUnstageVolume()")
+        # Destroy stratis FS
+
+        staging_target_path = request.staging_target_path
+
+        if not os.path.ismount(staging_target_path):
+            logger.warning('NodeUnpublishVolume: {} is already un-mounted'.format(staging_target_path))
+        else:
+            umount(staging_target_path)
+
+        if os.path.isdir(staging_target_path):
+            logger.debug('NodeUnstageVolume removing stage dir: {}'.format(staging_target_path))
+            os.rmdir(staging_target_path)
+
+        return NodeUnstageVolumeResponse()
+    
     def NodePublishVolume(self, request, context):
         logger.info("NodePublishVolume()")
         if request.volume_id == None or request.volume_id == "":
@@ -56,34 +98,24 @@ class SpringfieldNodeService(NodeServicer):
         if request.target_path == None or request.target_path == "":
             context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Must include target_path")
 
-        # if not request.volume_capability == None:
-        #     context.abort(
-        #         grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_capability"
-        #     )
-        # make sure volume exits.
-        volume_map = controller.get_volume(request.volume_id)
+        staging_target_path = request.staging_target_path
+        publish_path = request.target_path
 
-        if volume_map == None:
-            context.abort(
-                grpc.StatusCode.INVALID_ARGUMENT,
-                "Volume not found",
-            )
-
+        logger.info("NodePublishVolume(): staging_target_path = %s, publish_path = %s", staging_target_path, publish_path)
+        
         volume_capability = request.volume_capability
-        logger.info(volume_capability)
+        
         fstype = volume_capability.mount.fs_type
 
-        access_type = volume_capability.WhichOneof("access_type")
-        assert access_type == "mount" or access_type == "block"
+        # access_type = volume_capability.WhichOneof("access_type")
+        # assert access_type == "mount" or access_type == "block"
 
-        if fstype not in ["xfs", "btrfs", "ext4", ""]:
-            context.abort(
-                grpc.StatusCode.INVALID_ARGUMENT,
-                "Unsupported filesystem type: {fstype}",
-            )
+        # if fstype not in ["xfs"]:
+        #     context.abort(
+        #         grpc.StatusCode.INVALID_ARGUMENT,
+        #         "Unsupported filesystem type: {fstype}",
+        #     )
 
-        if fstype == "":
-            fstype = volume_map.device.format.type
 
         if volume_capability.access_mode.mode not in [
             csi_pb2.VolumeCapability.AccessMode.Mode.SINGLE_NODE_WRITER
@@ -92,15 +124,25 @@ class SpringfieldNodeService(NodeServicer):
                 grpc.StatusCode.INVALID_ARGUMENT,
                 "Unsupported access mode: {csi_pb2.VolumeCapability.AccessMode.Mode.Name(volume_capability.access_mode.mode)}",
             )
-        if access_type == "mount":
-            volume_map.device.format.setup(mountpoint=request.target_path)
 
-        volume_map.published_path = request.target_path
+        exists = os.path.exists(publish_path)
+        if not exists:
+            os.makedirs(publish_path)
+
+
+        logger.info("mount :" + staging_target_path + " on: " + publish_path + " with : --bind")
+        try:
+            mount(staging_target_path, publish_path, "--bind")
+        except OSError as e:
+          logger.warning(
+                "Warining mount failed: %s : %s" % (staging_target_path, e.strerror)
+            )
 
         return NodePublishVolumeResponse()
 
     def NodeUnpublishVolume(self, request, context):
         logger.info("NodeUnpublishVolume()")
+
         if request.volume_id == None or request.volume_id == "":
             context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Must include volume_id")
 
@@ -110,25 +152,14 @@ class SpringfieldNodeService(NodeServicer):
             context.abort(
                 grpc.StatusCode.NOT_FOUND, "request.target_path does not exits"
             )
-        volume_map = controller.get_volume(request.volume_id)
+        volume_id = request.volume_id
+        target_path = request.target_path
 
-        try:
-            volume_map.device.format.teardown(mountpoint=request.target_path)
-        except OSError as e:
-            self.logger.warning(
-                "Warining umount filed: %s : %s" % (request.target_path, e.strerror)
-            )
-        try:
-            if os.path.isfile(request.target_path):
-                os.remove(request.target_path)
-            if os.path.isdir(request.target_path):
-                os.rmdir(request.target_path)
+        if not os.path.ismount(target_path):
+            logger.warning('NodeUnpublishVolume: {} is already un-mounted'.format(target_path))
+        else:
+            umount(target_path)
 
-        except OSError as e:
-            self.logger.warning(
-                "Warining remove unpublish remove: %s : %s"
-                % (request.target_path, e.strerror)
-            )
         return NodeUnpublishVolumeResponse()
 
     def NodeGetCapabilities(self, request, context):
@@ -151,7 +182,7 @@ class SpringfieldNodeService(NodeServicer):
         return NodeGetCapabilitiesResponse(capabilities=capabilities)
 
     def NodeGetInfo(self, request, context):
-        logger.info("NodeGetInfo()")
+        logger.info("NodeGetInfo() nodeid = %s", self.nodeid)
         return NodeGetInfoResponse(
             node_id=self.nodeid,
             accessible_topology=Topology(segments={"hostname": self.nodeid}),

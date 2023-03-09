@@ -31,7 +31,7 @@ RUN apt-get update && \
     libdbus-glib-1-dev libgirepository1.0-dev
 
 RUN python3 -m pip install --upgrade pip
-RUN python3 -m pip install install dbus-python protobuf grpcio grpcio-tools
+RUN python3 -m pip install install sh dbus-python protobuf grpcio grpcio-tools
 
 LABEL maintainers="Todd Gill <tgill@redhat.com>" \
     version="0.1.2" \

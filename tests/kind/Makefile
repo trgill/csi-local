@@ -3,7 +3,7 @@ HELM_VERSION := 3.9.0
 SPRINGFIELD_CSI_VERSION := 0.1.1
 CERT_MANAGER_VERSION := v1.7.0
 
-KIND_CLUSTER_NAME := springfield-test
+KIND_CLUSTER_NAME := springfield-cluster
 
 SUDO := sudo
 CURL := curl -sSLf
@@ -37,8 +37,8 @@ run:
 	fi
 	$(KUBECTL) apply -f https://github.com/cert-manager/cert-manager/releases/download/$(CERT_MANAGER_VERSION)/cert-manager.crds.yaml
 	$(KUBECTL) create namespace springfield-system
-	$(KUBECTL) label namespace springfield-system springfield.redhat.com/webhook=ignore
-	$(KUBECTL) label namespace kube-system springfield.redhat.com/webhook=ignore
+	$(KUBECTL) label namespace springfield-system springfield.csi.redhat.com/webhook=ignore
+	$(KUBECTL) label namespace kube-system springfield.csi.redhat.com/webhook=ignore
 	$(HELM) repo add jetstack https://charts.jetstack.io
 	$(HELM) repo update
 	$(HELM) dependency build ../charts/springfield/
