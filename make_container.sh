@@ -63,7 +63,7 @@ echo $GITHUB_PAT | docker login ghcr.io -u trgill --password-stdin
 
 docker tag springfield-csi-driver:devel ghcr.io/trgill/springfield-csi-driver:devel
 docker push ghcr.io/trgill/springfield-csi-driver:devel
-docker save -o $BINDIR/springfield-csi-driver:devel.image springfield-csi-driver:devel
+docker save -o $BINDIR/springfield-csi-driver.image springfield-csi-driver:devel
 
 docker images ghcr.io/trgill/springfield-csi-driver
 
